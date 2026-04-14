@@ -19,46 +19,33 @@ Swaps convert funds between currencies within the platform — for example, BRL 
 ## Steps
 
 <Steps>
-  <Step title="Request a quote">
-    Get the current exchange rate and confirm the amounts before executing:
+  <Step title="Create the swap">
+    Specify the source and target assets along with the amount to convert. The platform creates a quote automatically and returns it in the response.
 
     ```bash
     curl --request POST \
-      --url {{sandboxUrl}}/api/quotes \
+      --url {{sandboxUrl}}/api/swaps \
       --header 'Authorization: Bearer <token>' \
-
-      --header 'Content-Type: application/json' \
-      --data '{
-        "from": "BRL",
-        "to": "USD",
-        "amount": {
-          "value": 500000,
-          "asset": "BRL"
-        }
-      }'
-    ```
-
-    The response includes the quoted rate and the resulting amount. Quotes are valid for a limited time.
-  </Step>
-  <Step title="Execute the swap">
-    Submit the swap using the quote ID:
-
-    ```bash
-    curl --request POST \
-      --url {{sandboxUrl}}/api/operations \
-      --header 'Authorization: Bearer <token>' \
-
       --header 'X-Idempotency-Key: <unique-key>' \
       --header 'Content-Type: application/json' \
       --data '{
-        "type": "SWAP",
-        "quoteId": "<quote-id>",
-        "accountId": "<account-id>"
+        "accountId": "<account-id>",
+        "sourceAsset": "BRL",
+        "targetAsset": "USDT",
+        "sourceAmountValue": 500000
       }'
     ```
+
+    The response includes the operation in `PENDING` status with the `quote` object containing the exchange rate, funding amount, settlement amount, and expiration time.
   </Step>
   <Step title="Track the swap">
-    Listen for `operation.created`, `operation.completed`, and `operation.failed` webhook events.
+    Listen for `operation.completed` and `operation.failed` webhook events. You can also poll the operation status:
+
+    ```bash
+    curl --request GET \
+      --url {{sandboxUrl}}/api/operations/<operation-id> \
+      --header 'Authorization: Bearer <token>'
+    ```
   </Step>
 </Steps>
 
