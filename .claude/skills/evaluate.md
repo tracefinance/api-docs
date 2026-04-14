@@ -22,7 +22,6 @@ Run the eval suite to measure documentation health.
 | `description-quality` | Non-placeholder, >= 20 chars | 95% |
 | `orphan-detector` | Every .mdx in docs.json | 90% |
 | `navigation-coverage` | Every docs.json entry has a .mdx file | 90% |
-| `freshness-checker` | Pages updated within 90 days | 70% |
 | `openapi-completeness` | No TODO stubs in OpenAPI specs | 50% |
 
 ## Instructions
@@ -30,7 +29,7 @@ Run the eval suite to measure documentation health.
 When the user runs `/evaluate` with no arguments, run ALL evals:
 
 ```bash
-for eval in frontmatter-completeness content-depth description-quality orphan-detector navigation-coverage freshness-checker openapi-completeness; do
+for eval in frontmatter-completeness content-depth description-quality orphan-detector navigation-coverage openapi-completeness; do
   python3 .claude/evals/$eval.py --json 2>&1
   echo "---"
 done

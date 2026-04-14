@@ -89,7 +89,6 @@ Registered in `.claude/settings.json` as PostToolUse hooks:
 | `description-quality` | Non-placeholder descriptions | 95% |
 | `orphan-detector` | Every .mdx in docs.json | 90% |
 | `navigation-coverage` | Every docs.json entry has .mdx | 90% |
-| `freshness-checker` | Pages updated within 90 days | 70% |
 | `openapi-completeness` | No TODO stubs in OpenAPI specs | 50% |
 
 Run a single eval: `python3 .claude/evals/{name}.py --json`

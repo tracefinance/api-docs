@@ -130,7 +130,7 @@
   },
   "description": "API documentation for Trace Finance's multi-currency account and payment platform.",
   "seo": {
-    "indexing": "navigated"
+    "indexing": "navigable"
   },
   "search": {
     "placeholder": "Search docs..."
