@@ -1,6 +1,6 @@
-openapi: 3.1.1
+openapi: 3.1.0
 info:
-  title: Trace FX Accounts API
+  title: FX Account API
   version: 1.0.0
   description: API for managing multi-currency accounts on the Trace FX platform.
 servers:
@@ -10,6 +10,15 @@ servers:
     description: Production
 security:
   - bearerAuth: []
+tags:
+  - name: Accounts
+    description: Create, list, and manage multi-currency accounts.
+  - name: Beneficial owners
+    description: Manage beneficial owners (UBOs) for company-owned accounts.
+  - name: Documents
+    description: Upload documents to fulfill account and UBO requirements.
+  - name: Funding instructions
+    description: Retrieve funding instructions for depositing into an account.
 components:
   securitySchemes:
     bearerAuth:
@@ -17,19 +26,221 @@ components:
       scheme: bearer
       bearerFormat: JWT
       description: "Auth0 JWT token. Include as `Authorization: Bearer <token>`."
+  parameters:
+    AccountId:
+      name: accountId
+      in: path
+      required: true
+      description: UUID of the account.
+      schema:
+        type: string
+        format: uuid
+    UboId:
+      name: uboId
+      in: path
+      required: true
+      description: UUID of the beneficial owner.
+      schema:
+        type: string
+        format: uuid
+    TraceVersion:
+      name: X-Trace-Version
+      in: header
+      required: false
+      description: API version. Omit to use the default version.
+      schema:
+        type: string
+        example: "1"
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      description: Unique key to ensure idempotent request processing.
+      schema:
+        type: string
+        format: uuid
+    PaginationLimit:
+      name: limit
+      in: query
+      required: false
+      description: Maximum number of items to return. Defaults to 10.
+      schema:
+        type: integer
+        default: 10
+        minimum: 1
+        maximum: 100
+    PaginationCursor:
+      name: cursor
+      in: query
+      required: false
+      description: Opaque cursor for fetching the next or previous page.
+      schema:
+        type: string
+    PaginationDirection:
+      name: direction
+      in: query
+      required: false
+      description: Direction of pagination relative to the cursor.
+      schema:
+        type: string
+        enum:
+          - NEXT
+          - PREVIOUS
+    PaginationSortOrder:
+      name: sortOrder
+      in: query
+      required: false
+      description: Sort order for results. Defaults to DESCENDING.
+      schema:
+        type: string
+        enum:
+          - ASCENDING
+          - DESCENDING
+        default: DESCENDING
+    PaginationIncludeTotalMatches:
+      name: includeTotalMatches
+      in: query
+      required: false
+      description: Whether to include the total number of matching records in the response metadata.
+      schema:
+        type: boolean
+        default: false
   schemas:
-    AddressResponse:
+    # ── Request schemas ──────────────────────────────────────────────
+    CreateAccountRequest:
+      type: object
+      description: Request body for creating a new account.
+      properties:
+        assets:
+          type: array
+          description: Desired asset currencies. At least one required; each code must be unique.
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/AssetRequest"
+        owner:
+          $ref: "#/components/schemas/OwnerRequest"
+      required:
+        - assets
+        - owner
+    AssetRequest:
       type: object
       properties:
-        street:
+        code:
           type: string
-          example: "Rua das Flores"
-        number:
+          description: ISO 4217 currency code or stablecoin ticker.
+          example: "BRL"
+        isVirtual:
+          type: boolean
+          description: Whether this is a virtual (non-custodial) asset.
+          example: false
+      required:
+        - code
+        - isVirtual
+    OwnerRequest:
+      description: The legal entity that owns the account. Discriminated by `type`.
+      oneOf:
+        - $ref: "#/components/schemas/CompanyOwnerRequest"
+        - $ref: "#/components/schemas/IndividualOwnerRequest"
+      discriminator:
+        propertyName: type
+        mapping:
+          COMPANY: "#/components/schemas/CompanyOwnerRequest"
+          INDIVIDUAL: "#/components/schemas/IndividualOwnerRequest"
+    CompanyOwnerRequest:
+      type: object
+      properties:
+        type:
           type: string
-          example: "100"
-        district:
+          enum:
+            - COMPANY
+        legalName:
           type: string
-          example: "Centro"
+          description: Registered legal name of the company.
+          example: "Acme Ltda"
+        taxId:
+          type: string
+          description: CNPJ of the company.
+          example: "12345678000101"
+        industry:
+          type: string
+          description: Industry classification.
+          enum:
+            - ACCOUNTING
+            - ADVERTISING__MARKETING
+            - AEROSPACE__DEFENSE
+            - AGRICULTURE__FORESTRY
+            - AMUSEMENT_AND_RECREATION
+            - AUTOMOTIVE
+            - CONSTRUCTION__CARPENTRY__LANDSCAPING
+            - CUSTOMER_SERVICE_AND_SUPPORT
+            - EDUCATION
+            - ENERGY
+            - ENGINEERING
+            - FINANCIAL_SERVICES
+            - HEALTHCARE__MEDICAL_SERVICES
+            - HOTEL__HOSPITALITY
+            - INFORMATION_TECHNOLOGY
+            - MANUFACTURING
+            - MEDIA__ENTERTAINMENT
+            - MINING_OIL_AND_GAS
+            - NON_PROFIT__NGO__CHARITY
+            - PHARMACEUTICALS
+            - PRINTING__PUBLISHING
+            - REAL_ESTATE
+            - RESTAURANT__FOOD_SERVICE
+            - RETAIL_SALES__RETAIL_TRADE
+            - SECURITY
+            - TRANSPORTATION
+            - TRAVEL
+            - UTILITIES
+            - WHOLESALE
+            - OTHERS
+          example: "INFORMATION_TECHNOLOGY"
+        address:
+          $ref: "#/components/schemas/AddressRequest"
+      required:
+        - type
+        - legalName
+        - taxId
+        - industry
+        - address
+    IndividualOwnerRequest:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+            - INDIVIDUAL
+        firstName:
+          type: string
+          description: First name of the individual.
+          example: "Maria"
+        lastName:
+          type: string
+          description: Last name of the individual.
+          example: "Silva"
+        taxId:
+          type: string
+          description: CPF of the individual.
+          example: "12345678900"
+        address:
+          $ref: "#/components/schemas/AddressRequest"
+      required:
+        - type
+        - firstName
+        - lastName
+        - taxId
+        - address
+    AddressRequest:
+      type: object
+      properties:
+        addressLine1:
+          type: string
+          example: "Rua das Flores, 100"
+        addressLine2:
+          type: string
+          nullable: true
+          example: "Suite 456"
         city:
           type: string
           example: "São Paulo"
@@ -38,43 +249,63 @@ components:
           example: "SP"
         country:
           type: string
+          description: ISO 3166-1 alpha-2 country code.
           example: "BR"
-        zipCode:
+        postalCode:
           type: string
-          example: "01000-000"
-        complement:
-          type: string
-          nullable: true
-          example: "Apto 101"
+          example: "01234-567"
       required:
-        - street
-        - number
-        - district
+        - addressLine1
         - city
         - state
         - country
-        - zipCode
-    OwnerResponse:
+        - postalCode
+    UBORequest:
       type: object
-      description: The account owner.
+      description: Request body for adding a beneficial owner.
       properties:
-        id:
-          type: string
-          format: uuid
-          example: "f47ac10b-58cc-4372-a567-0e02b2c3d479"
         name:
           type: string
-          example: "ACME Ltda"
+          description: Full legal name of the beneficial owner.
+          example: "João Silva"
         taxId:
           type: string
-          example: "12345678000190"
+          description: CPF or CNPJ of the beneficial owner.
+          example: "12345678900"
         address:
-          $ref: '#/components/schemas/AddressResponse'
+          $ref: "#/components/schemas/AddressRequest"
+        ownershipPercentage:
+          type: number
+          format: double
+          nullable: true
+          description: Percentage of ownership. Optional.
+          example: 50.0
       required:
-        - id
         - name
         - taxId
         - address
+    UpdateUBORequest:
+      type: object
+      description: Request body for updating a beneficial owner. All fields are optional (patch semantics).
+      properties:
+        name:
+          type: string
+          description: Full legal name of the beneficial owner.
+          example: "João Silva"
+        taxId:
+          type: string
+          description: CPF or CNPJ of the beneficial owner.
+          example: "12345678900"
+        address:
+          $ref: "#/components/schemas/AddressRequest"
+        ownershipPercentage:
+          type: number
+          format: double
+          nullable: true
+          description: Percentage of ownership.
+          example: 75.0
+
+    # ── Response schemas ─────────────────────────────────────────────
     AccountResponse:
       type: object
       properties:
@@ -82,34 +313,525 @@ components:
           type: string
           format: uuid
           example: "a1b2c3d4-5e6f-7890-abcd-ef1234567890"
-        externalId:
+        sourceAccountId:
           type: string
+          format: uuid
           nullable: true
-          description: Your own identifier for this account, if provided at creation.
-          example: "ext-123"
+          description: Parent account ID. Null for named accounts.
+          example: null
+        customer:
+          $ref: "#/components/schemas/CustomerResponse"
         owner:
-          $ref: '#/components/schemas/OwnerResponse'
+          $ref: "#/components/schemas/OwnerResponse"
+        requirements:
+          $ref: "#/components/schemas/RequirementsResponse"
+        tags:
+          type: array
+          items:
+            $ref: "#/components/schemas/TagResponse"
+        currentState:
+          $ref: "#/components/schemas/AccountState"
+        states:
+          type: array
+          description: Full state history of the account.
+          items:
+            $ref: "#/components/schemas/AccountState"
         createdAt:
           type: string
           format: date-time
-          example: "2025-01-15T10:30:00Z"
+          example: "2026-01-15T10:30:00Z"
         updatedAt:
           type: string
           format: date-time
-          example: "2025-01-15T10:30:00Z"
+          example: "2026-01-15T10:30:00Z"
       required:
         - id
+        - customer
         - owner
+        - requirements
+        - tags
+        - currentState
+        - states
         - createdAt
         - updatedAt
+    CustomerResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Customer identifier.
+          example: "c1a2b3c4-d5e6-7890-abcd-ef1234567890"
+      required:
+        - id
+    OwnerResponse:
+      description: The legal entity that owns the account. Discriminated by `type`.
+      oneOf:
+        - $ref: "#/components/schemas/CompanyOwnerResponse"
+        - $ref: "#/components/schemas/IndividualOwnerResponse"
+      discriminator:
+        propertyName: type
+        mapping:
+          COMPANY: "#/components/schemas/CompanyOwnerResponse"
+          INDIVIDUAL: "#/components/schemas/IndividualOwnerResponse"
+    CompanyOwnerResponse:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+            - COMPANY
+        legalName:
+          type: string
+          example: "Acme Ltda"
+        taxId:
+          type: string
+          example: "12345678000101"
+        industry:
+          type: string
+          example: "INFORMATION_TECHNOLOGY"
+        address:
+          $ref: "#/components/schemas/AddressResponse"
+        ubos:
+          type: array
+          items:
+            $ref: "#/components/schemas/UBOResponse"
+      required:
+        - type
+        - legalName
+        - taxId
+        - industry
+        - address
+        - ubos
+    IndividualOwnerResponse:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+            - INDIVIDUAL
+        firstName:
+          type: string
+          example: "Maria"
+        lastName:
+          type: string
+          example: "Silva"
+        taxId:
+          type: string
+          example: "12345678900"
+        address:
+          $ref: "#/components/schemas/AddressResponse"
+      required:
+        - type
+        - firstName
+        - lastName
+        - taxId
+        - address
+    AddressResponse:
+      type: object
+      properties:
+        addressLine1:
+          type: string
+          example: "Rua das Flores, 100"
+        addressLine2:
+          type: string
+          nullable: true
+          example: "Suite 456"
+        city:
+          type: string
+          example: "São Paulo"
+        state:
+          type: string
+          nullable: true
+          example: "SP"
+        country:
+          type: string
+          description: ISO 3166-1 alpha-2 country code.
+          example: "BR"
+        postalCode:
+          type: string
+          example: "01234-567"
+      required:
+        - addressLine1
+        - city
+        - country
+        - postalCode
+    AccountState:
+      type: object
+      description: A point-in-time state of the account.
+      properties:
+        status:
+          type: string
+          enum:
+            - ACTION_REQUIRED
+            - REVIEWING
+            - OPENING
+            - ACTIVE
+            - REJECTED
+            - CLOSED
+          example: "ACTION_REQUIRED"
+        reason:
+          $ref: "#/components/schemas/Reason"
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-01-15T10:30:00Z"
+      required:
+        - status
+        - createdAt
+    UBOState:
+      type: object
+      description: A point-in-time state of a beneficial owner.
+      properties:
+        status:
+          type: string
+          enum:
+            - PENDING
+            - APPROVED
+            - REJECTED
+          example: "PENDING"
+        reason:
+          $ref: "#/components/schemas/Reason"
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-01-15T10:30:00Z"
+      required:
+        - status
+        - createdAt
+    Reason:
+      type: object
+      nullable: true
+      description: Explains why a state transition occurred.
+      properties:
+        code:
+          type: string
+          description: Machine-readable error code.
+          example: "DOCUMENT_REJECTED"
+        message:
+          type: string
+          description: Human-readable description.
+          example: "Document is illegible"
+        details:
+          type: object
+          additionalProperties: true
+          description: Additional context. May be empty.
+          example: {}
+      required:
+        - code
+        - message
+        - details
+    RequirementsResponse:
+      type: object
+      description: "Stripe-style requirement buckets grouped by lifecycle stage."
+      properties:
+        currentlyDue:
+          type: array
+          description: Requirements pending submission.
+          items:
+            $ref: "#/components/schemas/RequirementResponse"
+        pendingVerification:
+          type: array
+          description: Submitted requirements awaiting verification.
+          items:
+            $ref: "#/components/schemas/RequirementResponse"
+        errors:
+          type: array
+          description: Rejected requirements with reasons.
+          items:
+            $ref: "#/components/schemas/RequirementResponse"
+        satisfied:
+          type: array
+          description: Fulfilled requirements.
+          items:
+            $ref: "#/components/schemas/RequirementResponse"
+      required:
+        - currentlyDue
+        - pendingVerification
+        - errors
+        - satisfied
+    RequirementResponse:
+      type: object
+      description: A single requirement. Currently only `DOCUMENT` type is supported.
+      properties:
+        type:
+          type: string
+          description: Requirement type discriminator.
+          enum:
+            - DOCUMENT
+          example: "DOCUMENT"
+        documentType:
+          type: string
+          nullable: true
+          description: The type of document required.
+          enum:
+            - CNPJ_CERTIFICATE
+            - PROOF_OF_ADDRESS
+            - SOCIAL_CONTRACT
+            - IDENTITY_DOCUMENT
+          example: "CNPJ_CERTIFICATE"
+        uboId:
+          type: string
+          format: uuid
+          nullable: true
+          description: UBO identifier if this requirement belongs to a beneficial owner.
+        reason:
+          $ref: "#/components/schemas/Reason"
+      required:
+        - type
+    TagResponse:
+      type: object
+      properties:
+        key:
+          type: string
+          nullable: true
+        value:
+          type: string
+      required:
+        - value
+    UBOResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "b2c3d4e5-f6a7-8901-bcde-f12345678901"
+        name:
+          type: string
+          example: "João Silva"
+        taxId:
+          type: string
+          example: "12345678900"
+        address:
+          $ref: "#/components/schemas/AddressResponse"
+        ownershipPercentage:
+          type: number
+          format: double
+          nullable: true
+          example: 50.0
+        currentState:
+          $ref: "#/components/schemas/UBOState"
+      required:
+        - id
+        - name
+        - taxId
+        - address
+        - currentState
+    FundingInstructionResponse:
+      description: A funding instruction for depositing into an account. Discriminated by `type`.
+      oneOf:
+        - $ref: "#/components/schemas/PixKeyFundingInstruction"
+        - $ref: "#/components/schemas/PixStaticQrCodeFundingInstruction"
+        - $ref: "#/components/schemas/TedFundingInstruction"
+        - $ref: "#/components/schemas/BoletoFundingInstruction"
+        - $ref: "#/components/schemas/CryptoWalletFundingInstruction"
+      discriminator:
+        propertyName: type
+        mapping:
+          PIX_KEY: "#/components/schemas/PixKeyFundingInstruction"
+          PIX_STATIC_QR_CODE: "#/components/schemas/PixStaticQrCodeFundingInstruction"
+          TED: "#/components/schemas/TedFundingInstruction"
+          BOLETO: "#/components/schemas/BoletoFundingInstruction"
+          CRYPTO_WALLET: "#/components/schemas/CryptoWalletFundingInstruction"
+    FundingInstructionBase:
+      type: object
+      properties:
+        asset:
+          type: string
+          description: Currency code for this funding instruction.
+          example: "BRL"
+        type:
+          type: string
+          description: Funding instruction type discriminator.
+          enum:
+            - PIX_KEY
+            - PIX_STATIC_QR_CODE
+            - TED
+            - BOLETO
+            - CRYPTO_WALLET
+        rail:
+          type: string
+          description: Payment rail. Computed from the type.
+          enum:
+            - PIX
+            - TED
+            - BOLETO
+            - CRYPTO
+          readOnly: true
+      required:
+        - asset
+        - type
+        - rail
+    PixKeyFundingInstruction:
+      allOf:
+        - $ref: "#/components/schemas/FundingInstructionBase"
+        - type: object
+          properties:
+            type:
+              type: string
+              enum:
+                - PIX_KEY
+            rail:
+              type: string
+              enum:
+                - PIX
+            keyType:
+              type: string
+              description: PIX key type.
+              enum:
+                - CPF
+                - CNPJ
+                - EMAIL
+                - PHONE
+                - RANDOM
+              example: "CNPJ"
+            key:
+              type: string
+              description: The PIX key value.
+              example: "12345678000101"
+          required:
+            - keyType
+            - key
+    PixStaticQrCodeFundingInstruction:
+      allOf:
+        - $ref: "#/components/schemas/FundingInstructionBase"
+        - type: object
+          properties:
+            type:
+              type: string
+              enum:
+                - PIX_STATIC_QR_CODE
+            rail:
+              type: string
+              enum:
+                - PIX
+            qrCode:
+              type: string
+              description: Static QR code payload (EMV format).
+              example: "00020126580014br.gov.bcb.pix..."
+          required:
+            - qrCode
+    TedFundingInstruction:
+      allOf:
+        - $ref: "#/components/schemas/FundingInstructionBase"
+        - type: object
+          properties:
+            type:
+              type: string
+              enum:
+                - TED
+            rail:
+              type: string
+              enum:
+                - TED
+            bankCode:
+              type: string
+              description: Bank code (ISPB or COMPE).
+              example: "001"
+            branch:
+              type: string
+              description: Branch number.
+              example: "0001"
+            accountNumber:
+              type: string
+              description: Account number.
+              example: "123456-7"
+            accountType:
+              type: string
+              description: Type of bank account.
+              example: "CHECKING"
+          required:
+            - bankCode
+            - branch
+            - accountNumber
+            - accountType
+    BoletoFundingInstruction:
+      allOf:
+        - $ref: "#/components/schemas/FundingInstructionBase"
+        - type: object
+          properties:
+            type:
+              type: string
+              enum:
+                - BOLETO
+            rail:
+              type: string
+              enum:
+                - BOLETO
+            barcode:
+              type: string
+              description: Boleto barcode (digitable line).
+              example: "23793.38128 60800.000003 00000.000400 1 84340000012345"
+            dueDate:
+              type: string
+              format: date-time
+              description: Payment due date.
+              example: "2026-04-04T00:00:00Z"
+          required:
+            - barcode
+            - dueDate
+    CryptoWalletFundingInstruction:
+      allOf:
+        - $ref: "#/components/schemas/FundingInstructionBase"
+        - type: object
+          properties:
+            type:
+              type: string
+              enum:
+                - CRYPTO_WALLET
+            rail:
+              type: string
+              enum:
+                - CRYPTO
+            network:
+              type: string
+              description: Blockchain network.
+              example: "ETHEREUM"
+            walletAddress:
+              type: string
+              description: Deposit wallet address.
+              example: "0x1234567890abcdef1234567890abcdef12345678"
+          required:
+            - network
+            - walletAddress
+    DocumentResponse:
+      type: object
+      properties:
+        documentId:
+          type: string
+          description: Identifier of the uploaded document.
+          example: "doc-a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+      required:
+        - documentId
+    PageMetadata:
+      type: object
+      properties:
+        previous:
+          type: string
+          nullable: true
+          description: Cursor for the previous page.
+        next:
+          type: string
+          nullable: true
+          description: Cursor for the next page.
+        count:
+          type: integer
+          description: Number of items in the current page.
+        totalMatches:
+          type: integer
+          nullable: true
+          description: Total number of matching records. Only present when `includeTotalMatches` is true.
+      required:
+        - count
     ErrorResponse:
       type: object
       properties:
         code:
           type: string
+          description: Machine-readable error code.
           example: "RESOURCE_NOT_FOUND"
         message:
           type: string
+          description: Human-readable description.
           example: "The requested resource was not found"
         details:
           type: object
@@ -118,70 +840,587 @@ components:
       required:
         - code
         - message
+
 paths:
+  # ── Account endpoints ────────────────────────────────────────────
+  /api/accounts:
+    post:
+      operationId: createAccount
+      tags:
+        - Accounts
+      summary: Create an account
+      description: Creates a new multi-currency account for the authenticated customer.
+      parameters:
+        - $ref: "#/components/parameters/TraceVersion"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAccountRequest"
+            examples:
+              company:
+                summary: Company-owned account
+                value:
+                  assets:
+                    - code: "BRL"
+                      isVirtual: false
+                  owner:
+                    type: "COMPANY"
+                    legalName: "Acme Ltda"
+                    taxId: "12345678000101"
+                    industry: "INFORMATION_TECHNOLOGY"
+                    address:
+                      addressLine1: "Rua das Flores, 100"
+                      addressLine2: "Suite 456"
+                      city: "São Paulo"
+                      state: "SP"
+                      country: "BR"
+                      postalCode: "01234-567"
+              individual:
+                summary: Individually-owned account
+                value:
+                  assets:
+                    - code: "BRL"
+                      isVirtual: false
+                  owner:
+                    type: "INDIVIDUAL"
+                    firstName: "Maria"
+                    lastName: "Silva"
+                    taxId: "12345678900"
+                    address:
+                      addressLine1: "Rua das Flores, 100"
+                      city: "São Paulo"
+                      state: "SP"
+                      country: "BR"
+                      postalCode: "01234-567"
+      responses:
+        "201":
+          description: Account created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountResponse"
+        "400":
+          description: Invalid request body.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing or invalid authentication token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Customer not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Validation error (e.g., individual customer with mismatched tax ID).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    get:
+      operationId: listAccounts
+      tags:
+        - Accounts
+      summary: List accounts
+      description: Lists all accounts for the authenticated customer. Results are paginated using cursor-based pagination.
+      parameters:
+        - $ref: "#/components/parameters/TraceVersion"
+        - $ref: "#/components/parameters/PaginationLimit"
+        - $ref: "#/components/parameters/PaginationCursor"
+        - $ref: "#/components/parameters/PaginationDirection"
+        - $ref: "#/components/parameters/PaginationSortOrder"
+        - $ref: "#/components/parameters/PaginationIncludeTotalMatches"
+      responses:
+        "200":
+          description: Paginated list of accounts.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AccountResponse"
+                  meta:
+                    $ref: "#/components/schemas/PageMetadata"
+                required:
+                  - data
+                  - meta
+        "401":
+          description: Missing or invalid authentication token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /api/accounts/{accountId}:
     get:
-      operationId: getAccountById
+      operationId: getAccount
       tags:
         - Accounts
       summary: Get an account
-      description: Retrieve the details of an account by its ID.
+      description: Retrieves the details of an account by its ID.
       parameters:
-        - name: accountId
-          in: path
-          required: true
-          description: UUID of the account.
-          schema:
-            type: string
-            format: uuid
-        - name: X-Trace-Version
-          in: header
-          required: false
-          description: API version. Omit to use the default version.
-          schema:
-            type: string
+        - $ref: "#/components/parameters/AccountId"
+        - $ref: "#/components/parameters/TraceVersion"
       responses:
         "200":
           description: Account details.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AccountResponse'
-              examples:
-                success:
-                  value:
-                    id: "a1b2c3d4-5e6f-7890-abcd-ef1234567890"
-                    externalId: "ext-123"
-                    owner:
-                      id: "f47ac10b-58cc-4372-a567-0e02b2c3d479"
-                      name: "ACME Ltda"
-                      taxId: "12345678000190"
-                      address:
-                        street: "Rua das Flores"
-                        number: "100"
-                        district: "Centro"
-                        city: "São Paulo"
-                        state: "SP"
-                        country: "BR"
-                        zipCode: "01000-000"
-                        complement: "Apto 101"
-                    createdAt: "2025-01-15T10:30:00Z"
-                    updatedAt: "2025-01-15T10:30:00Z"
+                $ref: "#/components/schemas/AccountResponse"
         "400":
-          description: Invalid request data.
+          description: Invalid account ID format.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: "#/components/schemas/ErrorResponse"
         "401":
           description: Missing or invalid authentication token.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: Account not found.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/accounts/{accountId}/review:
+    post:
+      operationId: submitAccountForReview
+      tags:
+        - Accounts
+      summary: Submit account for review
+      description: Submits an account for compliance review. All required documents and data must be provided before calling this endpoint.
+      parameters:
+        - $ref: "#/components/parameters/AccountId"
+        - $ref: "#/components/parameters/TraceVersion"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "202":
+          description: Account submitted for review.
+        "401":
+          description: Missing or invalid authentication token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Account not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Account has no provider accounts requiring analysis.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Account has missing documents or unfulfilled requirements.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ── Funding instructions ─────────────────────────────────────────
+  /api/accounts/{accountId}/fundingInstructions:
+    get:
+      operationId: listFundingInstructions
+      tags:
+        - Funding instructions
+      summary: List funding instructions
+      description: Retrieves funding instructions for depositing into an account. Returns all available payment rails (PIX, TED, Boleto, crypto).
+      parameters:
+        - $ref: "#/components/parameters/AccountId"
+        - $ref: "#/components/parameters/TraceVersion"
+      responses:
+        "200":
+          description: List of funding instructions.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FundingInstructionResponse"
+              examples:
+                mixed:
+                  summary: PIX and TED instructions
+                  value:
+                    - asset: "BRL"
+                      rail: "PIX"
+                      type: "PIX_KEY"
+                      keyType: "CNPJ"
+                      key: "12345678000101"
+                    - asset: "BRL"
+                      rail: "TED"
+                      type: "TED"
+                      bankCode: "001"
+                      branch: "0001"
+                      accountNumber: "123456-7"
+                      accountType: "CHECKING"
+        "400":
+          description: Invalid account ID format.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing or invalid authentication token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Account not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ── Account documents ────────────────────────────────────────────
+  /api/accounts/{accountId}/documents:
+    post:
+      operationId: uploadAccountDocument
+      tags:
+        - Documents
+      summary: Upload an account document
+      description: Uploads a document to fulfill a specific account requirement.
+      parameters:
+        - $ref: "#/components/parameters/AccountId"
+        - $ref: "#/components/parameters/TraceVersion"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                requirementId:
+                  type: string
+                  format: uuid
+                  description: Identifier of the requirement being fulfilled.
+                file:
+                  type: string
+                  format: binary
+                  description: Document file content.
+              required:
+                - requirementId
+                - file
+      responses:
+        "200":
+          description: Document uploaded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentResponse"
+        "400":
+          description: Invalid account ID format or missing multipart fields.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing or invalid authentication token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Account not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: No matching requirement for the given requirement ID.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ── Beneficial owner endpoints ───────────────────────────────────
+  /api/accounts/{accountId}/ubos:
+    post:
+      operationId: addUbo
+      tags:
+        - Beneficial owners
+      summary: Add a beneficial owner
+      description: Adds a beneficial owner (UBO) to a company-owned account.
+      parameters:
+        - $ref: "#/components/parameters/AccountId"
+        - $ref: "#/components/parameters/TraceVersion"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UBORequest"
+            examples:
+              basic:
+                summary: Add a UBO
+                value:
+                  name: "João Silva"
+                  taxId: "12345678900"
+                  address:
+                    addressLine1: "Rua das Flores, 100"
+                    city: "São Paulo"
+                    state: "SP"
+                    country: "BR"
+                    postalCode: "01234-567"
+                  ownershipPercentage: 50.0
+      responses:
+        "201":
+          description: Beneficial owner added.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UBOResponse"
+        "400":
+          description: Invalid request body.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing or invalid authentication token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Account not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Validation error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    get:
+      operationId: listUbos
+      tags:
+        - Beneficial owners
+      summary: List beneficial owners
+      description: Lists all beneficial owners for an account.
+      parameters:
+        - $ref: "#/components/parameters/AccountId"
+        - $ref: "#/components/parameters/TraceVersion"
+      responses:
+        "200":
+          description: List of beneficial owners.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UBOResponse"
+        "401":
+          description: Missing or invalid authentication token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Account not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/accounts/{accountId}/ubos/{uboId}:
+    get:
+      operationId: getUbo
+      tags:
+        - Beneficial owners
+      summary: Get a beneficial owner
+      description: Retrieves a specific beneficial owner by ID.
+      parameters:
+        - $ref: "#/components/parameters/AccountId"
+        - $ref: "#/components/parameters/UboId"
+        - $ref: "#/components/parameters/TraceVersion"
+      responses:
+        "200":
+          description: Beneficial owner details.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UBOResponse"
+        "401":
+          description: Missing or invalid authentication token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Account or beneficial owner not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      operationId: updateUbo
+      tags:
+        - Beneficial owners
+      summary: Update a beneficial owner
+      description: Updates a beneficial owner. All fields are optional (patch semantics) — only provided fields are updated.
+      parameters:
+        - $ref: "#/components/parameters/AccountId"
+        - $ref: "#/components/parameters/UboId"
+        - $ref: "#/components/parameters/TraceVersion"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUBORequest"
+            examples:
+              nameOnly:
+                summary: Update name only
+                value:
+                  name: "João Carlos Silva"
+              full:
+                summary: Update all fields
+                value:
+                  name: "João Carlos Silva"
+                  taxId: "98765432100"
+                  address:
+                    addressLine1: "Av. Paulista, 1000"
+                    city: "São Paulo"
+                    state: "SP"
+                    country: "BR"
+                    postalCode: "01310-100"
+                  ownershipPercentage: 75.0
+      responses:
+        "200":
+          description: Beneficial owner updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UBOResponse"
+        "400":
+          description: Invalid request body.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing or invalid authentication token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Account or beneficial owner not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Validation error (e.g., ownership below 25%, UBO already approved).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: removeUbo
+      tags:
+        - Beneficial owners
+      summary: Remove a beneficial owner
+      description: Removes a beneficial owner from an account.
+      parameters:
+        - $ref: "#/components/parameters/AccountId"
+        - $ref: "#/components/parameters/UboId"
+        - $ref: "#/components/parameters/TraceVersion"
+      responses:
+        "204":
+          description: Beneficial owner removed.
+        "401":
+          description: Missing or invalid authentication token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Account or beneficial owner not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ── UBO documents ────────────────────────────────────────────────
+  /api/accounts/{accountId}/ubos/{uboId}/documents:
+    post:
+      operationId: uploadUboDocument
+      tags:
+        - Documents
+      summary: Upload a UBO document
+      description: Uploads a document to fulfill a specific beneficial owner requirement.
+      parameters:
+        - $ref: "#/components/parameters/AccountId"
+        - $ref: "#/components/parameters/UboId"
+        - $ref: "#/components/parameters/TraceVersion"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                requirementId:
+                  type: string
+                  format: uuid
+                  description: Identifier of the requirement being fulfilled.
+                file:
+                  type: string
+                  format: binary
+                  description: Document file content.
+              required:
+                - requirementId
+                - file
+      responses:
+        "200":
+          description: Document uploaded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentResponse"
+        "400":
+          description: Invalid parameters or missing multipart fields.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing or invalid authentication token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Account or beneficial owner not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"

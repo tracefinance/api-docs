@@ -5,8 +5,6 @@ info:
   description: |
     API for deposits, withdrawals, swaps, and beneficiary management
     on the Trace FX platform.
-
-    **This spec is a scaffold — endpoints require request/response schemas.**
 servers:
   - url: https://faas.sandbox.tracefinance.io/payment
     description: Sandbox
@@ -14,6 +12,13 @@ servers:
     description: Production
 security:
   - bearerAuth: []
+tags:
+  - name: Operations
+    description: Create deposits, withdrawals, and swaps. Query operation status and history.
+  - name: Beneficiaries
+    description: Manage external beneficiaries and their payment instructions for withdrawals.
+  - name: Payment instructions
+    description: Add or remove payment instructions on an existing beneficiary.
 components:
   securitySchemes:
     bearerAuth:
@@ -21,15 +26,201 @@ components:
       scheme: bearer
       bearerFormat: JWT
       description: "Auth0 JWT token. Include as `Authorization: Bearer <token>`."
+  parameters:
+    OperationId:
+      name: operationId
+      in: path
+      required: true
+      description: UUID of the operation.
+      schema:
+        type: string
+        format: uuid
+    BeneficiaryId:
+      name: beneficiaryId
+      in: path
+      required: true
+      description: UUID of the beneficiary.
+      schema:
+        type: string
+        format: uuid
+    PaymentInstructionId:
+      name: paymentInstructionId
+      in: path
+      required: true
+      description: UUID of the payment instruction.
+      schema:
+        type: string
+        format: uuid
+    TraceVersion:
+      name: X-Trace-Version
+      in: header
+      required: false
+      description: API version. Omit to use the default version.
+      schema:
+        type: string
+        example: "1"
+    IdempotencyKey:
+      name: X-Idempotency-Key
+      in: header
+      required: true
+      description: Unique key to ensure idempotent request processing.
+      schema:
+        type: string
+        format: uuid
+    PaginationLimit:
+      name: limit
+      in: query
+      required: false
+      description: Maximum number of items to return. Defaults to 20.
+      schema:
+        type: integer
+        default: 20
+        minimum: 1
+        maximum: 100
+    PaginationCursor:
+      name: cursor
+      in: query
+      required: false
+      description: Opaque cursor for fetching the next page.
+      schema:
+        type: string
   schemas:
+    # ── Shared value objects ──────────────────────────────────────────
+    Amount:
+      type: object
+      description: Monetary amount in minor units.
+      properties:
+        value:
+          type: integer
+          format: int64
+          description: Amount in minor units (e.g., 500000 = 5000.00 BRL).
+          example: 500000
+        asset:
+          type: string
+          description: ISO 4217 currency code or stablecoin ticker.
+          example: "BRL"
+      required:
+        - value
+        - asset
+    Quote:
+      type: object
+      description: Exchange rate snapshot created at operation time.
+      properties:
+        id:
+          type: string
+          description: Quote identifier.
+          example: "q-a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+        rate:
+          $ref: "#/components/schemas/SpotRate"
+        fundingAmount:
+          $ref: "#/components/schemas/Amount"
+        settlementAmount:
+          $ref: "#/components/schemas/Amount"
+        fees:
+          type: array
+          items:
+            $ref: "#/components/schemas/Fee"
+        expiresAt:
+          type: string
+          format: date-time
+          description: Quote expiration time.
+          example: "2026-04-14T12:35:00Z"
+      required:
+        - id
+        - rate
+        - fundingAmount
+        - settlementAmount
+        - fees
+        - expiresAt
+    SpotRate:
+      type: object
+      description: Exchange rate between two currencies.
+      properties:
+        value:
+          type: string
+          description: Rate value as a decimal string.
+          example: "5.25"
+        base:
+          type: string
+          description: Base currency.
+          example: "USD"
+        quote:
+          type: string
+          description: Quote currency.
+          example: "BRL"
+      required:
+        - value
+        - base
+        - quote
+    Fee:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Fee name.
+          example: "spread"
+        type:
+          type: string
+          description: Fee type.
+          example: "PERCENTAGE"
+        percentage:
+          type: string
+          nullable: true
+          description: Fee percentage as a decimal string. Null for flat fees.
+          example: "1.5"
+      required:
+        - name
+        - type
+    Reason:
+      type: object
+      nullable: true
+      description: Explains why an operation failed. Null on success.
+      properties:
+        code:
+          type: string
+          description: Machine-readable error code.
+          example: "insufficient_balance"
+        message:
+          type: string
+          description: Human-readable description.
+          example: "Insufficient balance for the requested operation"
+        details:
+          type: object
+          additionalProperties: true
+          example: {}
+      required:
+        - code
+        - message
+    PageMetadata:
+      type: object
+      properties:
+        previousCursor:
+          type: string
+          nullable: true
+          description: Cursor for the previous page.
+        nextCursor:
+          type: string
+          nullable: true
+          description: Cursor for the next page.
+        total:
+          type: integer
+          description: Total number of records.
+        totalMatches:
+          type: integer
+          description: Total records matching the current filter.
+      required:
+        - total
+        - totalMatches
     ErrorResponse:
       type: object
       properties:
         code:
           type: string
+          description: Machine-readable error code.
           example: "RESOURCE_NOT_FOUND"
         message:
           type: string
+          description: Human-readable description.
           example: "The requested resource was not found"
         details:
           type: object
@@ -38,123 +229,868 @@ components:
       required:
         - code
         - message
+
+    # ── Operation schemas ─────────────────────────────────────────────
+    CreateDepositRequest:
+      type: object
+      description: Request body for creating a deposit.
+      properties:
+        accountId:
+          type: string
+          format: uuid
+          description: Account to deposit into.
+          example: "a1b2c3d4-5e6f-7890-abcd-ef1234567890"
+        sourceAsset:
+          type: string
+          description: Asset the customer sends.
+          example: "BRL"
+        targetAsset:
+          type: string
+          description: Asset the customer receives. May differ for cross-asset deposits.
+          example: "USDT"
+        sourceAmountValue:
+          type: integer
+          format: int64
+          nullable: true
+          description: Amount in minor units of the source asset. Provide this OR targetAmountValue.
+          example: 500000
+        targetAmountValue:
+          type: integer
+          format: int64
+          nullable: true
+          description: Amount in minor units of the target asset. Provide this OR sourceAmountValue.
+        rail:
+          type: string
+          enum:
+            - PIX
+            - CRYPTO
+            - TED
+            - BOLETO
+          description: Payment rail for the deposit.
+          example: "PIX"
+      required:
+        - accountId
+        - sourceAsset
+        - targetAsset
+        - rail
+    CreateWithdrawalRequest:
+      type: object
+      description: Request body for creating a withdrawal.
+      properties:
+        accountId:
+          type: string
+          format: uuid
+          description: Account to withdraw from.
+          example: "a1b2c3d4-5e6f-7890-abcd-ef1234567890"
+        sourceAsset:
+          type: string
+          description: Asset to withdraw.
+          example: "BRL"
+        targetAsset:
+          type: string
+          description: Asset the beneficiary receives.
+          example: "BRL"
+        sourceAmountValue:
+          type: integer
+          format: int64
+          nullable: true
+          description: Amount in minor units of the source asset. Provide this OR targetAmountValue.
+          example: 100000
+        targetAmountValue:
+          type: integer
+          format: int64
+          nullable: true
+          description: Amount in minor units of the target asset. Provide this OR sourceAmountValue.
+        destination:
+          $ref: "#/components/schemas/WithdrawalDestination"
+      required:
+        - accountId
+        - sourceAsset
+        - targetAsset
+        - destination
+    WithdrawalDestination:
+      description: Where to send the withdrawn funds. Discriminated by `type`.
+      oneOf:
+        - $ref: "#/components/schemas/BeneficiaryReferenceDestination"
+        - $ref: "#/components/schemas/InlineBeneficiaryDestination"
+        - $ref: "#/components/schemas/BoletoDestination"
+        - $ref: "#/components/schemas/QrCodeDestination"
+      discriminator:
+        propertyName: type
+        mapping:
+          BENEFICIARY_REFERENCE: "#/components/schemas/BeneficiaryReferenceDestination"
+          BENEFICIARY: "#/components/schemas/InlineBeneficiaryDestination"
+          BOLETO: "#/components/schemas/BoletoDestination"
+          QR_CODE: "#/components/schemas/QrCodeDestination"
+    BeneficiaryReferenceDestination:
+      type: object
+      description: Reference a saved beneficiary payment instruction.
+      properties:
+        type:
+          type: string
+          enum:
+            - BENEFICIARY_REFERENCE
+        paymentInstructionId:
+          type: string
+          format: uuid
+          description: ID of a saved payment instruction on an approved beneficiary.
+          example: "b2c3d4e5-f6a7-8901-bcde-f12345678901"
+      required:
+        - type
+        - paymentInstructionId
+    InlineBeneficiaryDestination:
+      type: object
+      description: Provide beneficiary details inline. Auto-saved as APPROVED on completion.
+      properties:
+        type:
+          type: string
+          enum:
+            - BENEFICIARY
+        name:
+          type: string
+          description: Beneficiary legal name.
+          example: "João Silva"
+        taxId:
+          type: string
+          nullable: true
+          description: CPF or CNPJ.
+          example: "12345678900"
+        beneficiaryType:
+          type: string
+          enum:
+            - INDIVIDUAL
+            - COMPANY
+          description: Whether the beneficiary is an individual or company.
+        account:
+          $ref: "#/components/schemas/InlinePaymentInstruction"
+      required:
+        - type
+        - name
+        - beneficiaryType
+        - account
+    BoletoDestination:
+      type: object
+      description: Pay a boleto.
+      properties:
+        type:
+          type: string
+          enum:
+            - BOLETO
+        barCode:
+          type: string
+          description: Boleto barcode (digitable line).
+          example: "23793.38128 60800.000003 00000.000400 1 84340000012345"
+      required:
+        - type
+        - barCode
+    QrCodeDestination:
+      type: object
+      description: Pay a PIX QR code (static or dynamic).
+      properties:
+        type:
+          type: string
+          enum:
+            - QR_CODE
+        payload:
+          type: string
+          description: PIX QR code payload (EMV format).
+          example: "00020126580014br.gov.bcb.pix..."
+      required:
+        - type
+        - payload
+    InlinePaymentInstruction:
+      description: Payment instruction provided inline with the withdrawal. Discriminated by `type`.
+      oneOf:
+        - $ref: "#/components/schemas/PixInstruction"
+        - $ref: "#/components/schemas/BankAccountInstruction"
+        - $ref: "#/components/schemas/CryptoWalletInstruction"
+      discriminator:
+        propertyName: type
+        mapping:
+          PIX: "#/components/schemas/PixInstruction"
+          BANK_ACCOUNT: "#/components/schemas/BankAccountInstruction"
+          CRYPTO_WALLET: "#/components/schemas/CryptoWalletInstruction"
+    PixInstruction:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+            - PIX
+        pixKeyType:
+          type: string
+          enum:
+            - CPF
+            - CNPJ
+            - EMAIL
+            - PHONE
+            - EVP
+          description: PIX key type.
+        pixKey:
+          type: string
+          description: PIX key value.
+          example: "john@example.com"
+      required:
+        - type
+        - pixKeyType
+        - pixKey
+    BankAccountInstruction:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+            - BANK_ACCOUNT
+        bankCode:
+          type: string
+          description: Bank code (ISPB or COMPE).
+          example: "001"
+        branch:
+          type: string
+          description: Branch number.
+          example: "0001"
+        accountNumber:
+          type: string
+          description: Account number.
+          example: "123456"
+        accountType:
+          type: string
+          enum:
+            - CHECKING
+            - SAVINGS
+          description: Type of bank account.
+      required:
+        - type
+        - bankCode
+        - branch
+        - accountNumber
+        - accountType
+    CryptoWalletInstruction:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+            - CRYPTO_WALLET
+        address:
+          type: string
+          description: Wallet address.
+          example: "0x742d35Cc6634C0532925a3b844Bc9e7595f2bD18"
+        chain:
+          type: string
+          description: Blockchain network.
+          example: "ETHEREUM"
+        asset:
+          type: string
+          description: Crypto asset.
+          example: "USDT"
+      required:
+        - type
+        - address
+        - chain
+        - asset
+    CreateSwapRequest:
+      type: object
+      description: Request body for creating a swap (asset conversion).
+      properties:
+        accountId:
+          type: string
+          format: uuid
+          description: Account performing the swap.
+          example: "a1b2c3d4-5e6f-7890-abcd-ef1234567890"
+        sourceAsset:
+          type: string
+          description: Asset to convert from.
+          example: "USDT"
+        targetAsset:
+          type: string
+          description: Asset to convert to. Must differ from sourceAsset.
+          example: "BRL"
+        sourceAmountValue:
+          type: integer
+          format: int64
+          nullable: true
+          description: Amount in minor units of the source asset. Provide this OR targetAmountValue.
+          example: 10000
+        targetAmountValue:
+          type: integer
+          format: int64
+          nullable: true
+          description: Amount in minor units of the target asset. Provide this OR sourceAmountValue.
+      required:
+        - accountId
+        - sourceAsset
+        - targetAsset
+    OperationResponse:
+      type: object
+      description: An operation (deposit, withdrawal, or swap).
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "op-a1b2c3d4-5e6f-7890-abcd-ef1234567890"
+        type:
+          type: string
+          enum:
+            - DEPOSIT
+            - WITHDRAWAL
+            - SWAP
+          description: Operation type.
+        status:
+          type: string
+          enum:
+            - PENDING
+            - IN_REVIEW
+            - PROCESSING
+            - DEBITED
+            - COMPLETED
+            - FAILED
+          description: Current derived status.
+        accountId:
+          type: string
+          format: uuid
+          description: Account this operation belongs to.
+        sourceAsset:
+          type: string
+          description: Source currency.
+          example: "BRL"
+        targetAsset:
+          type: string
+          description: Target currency.
+          example: "USDT"
+        quote:
+          $ref: "#/components/schemas/Quote"
+        rail:
+          type: string
+          nullable: true
+          enum:
+            - PIX
+            - TED
+            - CRYPTO
+            - BOLETO
+          description: Payment rail. Present on deposits and withdrawals.
+        reason:
+          $ref: "#/components/schemas/Reason"
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-04-14T10:30:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2026-04-14T10:30:00Z"
+      required:
+        - id
+        - type
+        - status
+        - accountId
+        - sourceAsset
+        - targetAsset
+        - quote
+        - createdAt
+        - updatedAt
+
+    # ── Beneficiary schemas ───────────────────────────────────────────
+    CreateBeneficiaryRequest:
+      type: object
+      description: Request body for creating a beneficiary.
+      properties:
+        holder:
+          $ref: "#/components/schemas/HolderRequest"
+        paymentInstruction:
+          $ref: "#/components/schemas/PaymentInstructionRequest"
+      required:
+        - holder
+        - paymentInstruction
+    UpdateBeneficiaryRequest:
+      type: object
+      description: Request body for updating a beneficiary. Only holder fields can be changed.
+      properties:
+        holder:
+          $ref: "#/components/schemas/HolderRequest"
+      required:
+        - holder
+    HolderRequest:
+      description: The person or company that receives funds. Discriminated by `type`.
+      oneOf:
+        - $ref: "#/components/schemas/IndividualHolderRequest"
+        - $ref: "#/components/schemas/CompanyHolderRequest"
+      discriminator:
+        propertyName: type
+        mapping:
+          INDIVIDUAL: "#/components/schemas/IndividualHolderRequest"
+          COMPANY: "#/components/schemas/CompanyHolderRequest"
+    IndividualHolderRequest:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+            - INDIVIDUAL
+        name:
+          type: string
+          description: Full legal name.
+          example: "João Silva"
+        taxId:
+          type: string
+          nullable: true
+          description: CPF. Optional.
+          example: "12345678900"
+      required:
+        - type
+        - name
+    CompanyHolderRequest:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+            - COMPANY
+        legalName:
+          type: string
+          description: Registered legal name.
+          example: "Acme Importação Ltda"
+        tradeName:
+          type: string
+          nullable: true
+          description: Trade name. Optional.
+        taxId:
+          type: string
+          nullable: true
+          description: CNPJ. Optional.
+          example: "12345678000100"
+      required:
+        - type
+        - legalName
+    PaymentInstructionRequest:
+      description: Payment instruction for receiving funds. Discriminated by `type`.
+      oneOf:
+        - $ref: "#/components/schemas/PixInstructionRequest"
+        - $ref: "#/components/schemas/BankAccountInstructionRequest"
+        - $ref: "#/components/schemas/CryptoWalletInstructionRequest"
+      discriminator:
+        propertyName: type
+        mapping:
+          PIX: "#/components/schemas/PixInstructionRequest"
+          BANK_ACCOUNT: "#/components/schemas/BankAccountInstructionRequest"
+          CRYPTO_WALLET: "#/components/schemas/CryptoWalletInstructionRequest"
+    PixInstructionRequest:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+            - PIX
+        pixKeyType:
+          type: string
+          enum:
+            - CPF
+            - CNPJ
+            - EMAIL
+            - PHONE
+            - EVP
+          description: PIX key type.
+        pixKey:
+          type: string
+          description: PIX key value.
+          example: "john@example.com"
+      required:
+        - type
+        - pixKeyType
+        - pixKey
+    BankAccountInstructionRequest:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+            - BANK_ACCOUNT
+        bankCode:
+          type: string
+          description: Bank code (ISPB or COMPE).
+          example: "001"
+        branch:
+          type: string
+          description: Branch number.
+          example: "0001"
+        accountNumber:
+          type: string
+          description: Account number.
+          example: "123456"
+        accountType:
+          type: string
+          enum:
+            - CHECKING
+            - SAVINGS
+      required:
+        - type
+        - bankCode
+        - branch
+        - accountNumber
+        - accountType
+    CryptoWalletInstructionRequest:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+            - CRYPTO_WALLET
+        address:
+          type: string
+          description: Wallet address.
+          example: "0x742d35Cc6634C0532925a3b844Bc9e7595f2bD18"
+        chain:
+          type: string
+          description: Blockchain network.
+          example: "ETHEREUM"
+        asset:
+          type: string
+          description: Crypto asset.
+          example: "USDT"
+      required:
+        - type
+        - address
+        - chain
+        - asset
+    BeneficiaryResponse:
+      type: object
+      description: An external beneficiary registered for withdrawals.
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "ben-a1b2c3d4-5e6f-7890-abcd-ef1234567890"
+        customerId:
+          type: string
+          format: uuid
+          description: Customer that owns this beneficiary.
+        holder:
+          $ref: "#/components/schemas/HolderResponse"
+        status:
+          type: string
+          enum:
+            - PENDING_REVIEW
+            - APPROVED
+            - REJECTED
+          description: Compliance review status.
+        paymentInstructions:
+          type: array
+          items:
+            $ref: "#/components/schemas/PaymentInstructionResponse"
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-04-14T10:30:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2026-04-14T10:30:00Z"
+      required:
+        - id
+        - customerId
+        - holder
+        - status
+        - paymentInstructions
+        - createdAt
+        - updatedAt
+    HolderResponse:
+      description: The person or company that receives funds. Discriminated by `type`.
+      oneOf:
+        - $ref: "#/components/schemas/IndividualHolderResponse"
+        - $ref: "#/components/schemas/CompanyHolderResponse"
+      discriminator:
+        propertyName: type
+        mapping:
+          INDIVIDUAL: "#/components/schemas/IndividualHolderResponse"
+          COMPANY: "#/components/schemas/CompanyHolderResponse"
+    IndividualHolderResponse:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+            - INDIVIDUAL
+        name:
+          type: string
+          example: "João Silva"
+        taxId:
+          type: string
+          nullable: true
+          example: "12345678900"
+      required:
+        - type
+        - name
+    CompanyHolderResponse:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+            - COMPANY
+        legalName:
+          type: string
+          example: "Acme Importação Ltda"
+        tradeName:
+          type: string
+          nullable: true
+        taxId:
+          type: string
+          nullable: true
+          example: "12345678000100"
+      required:
+        - type
+        - legalName
+    PaymentInstructionResponse:
+      type: object
+      description: A payment instruction on a beneficiary.
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "pi-a1b2c3d4-5e6f-7890-abcd-ef1234567890"
+        type:
+          type: string
+          enum:
+            - PIX
+            - BANK_ACCOUNT
+            - CRYPTO_WALLET
+          description: Instruction type.
+        details:
+          type: object
+          description: Type-specific details (see examples).
+          additionalProperties: true
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-04-14T10:30:00Z"
+      required:
+        - id
+        - type
+        - details
+        - createdAt
+
 paths:
-  # --- Operations: Deposits ---
+  # ── Operations: Deposits ──────────────────────────────────────────
   /api/deposits:
     post:
       operationId: createDeposit
       tags:
         - Operations
       summary: Create a deposit
-      description: "TODO: Add request/response schemas from fx-payment docs."
+      description: Creates a deposit intent for the authenticated customer. Returns the operation with a funding instruction for completing the payment.
       parameters:
-        - name: X-Idempotency-Key
-          in: header
-          required: true
-          schema:
-            type: string
-        - name: X-Trace-Version
-          in: header
-          required: false
-          schema:
-            type: string
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/TraceVersion"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDepositRequest"
+            examples:
+              pixDeposit:
+                summary: PIX deposit (BRL to BRL)
+                value:
+                  accountId: "a1b2c3d4-5e6f-7890-abcd-ef1234567890"
+                  sourceAsset: "BRL"
+                  targetAsset: "BRL"
+                  sourceAmountValue: 500000
+                  rail: "PIX"
+              crossAsset:
+                summary: Cross-asset deposit (BRL to USDT)
+                value:
+                  accountId: "a1b2c3d4-5e6f-7890-abcd-ef1234567890"
+                  sourceAsset: "BRL"
+                  targetAsset: "USDT"
+                  targetAmountValue: 10000
+                  rail: "PIX"
       responses:
         "201":
           description: Deposit created.
-        "400":
-          description: Invalid request data.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: "#/components/schemas/OperationResponse"
+        "401":
+          description: Missing or invalid authentication token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Account or funding instruction not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Validation error (invalid amount, missing amount, invalid rail or asset).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
-  # --- Operations: Withdrawals ---
+  # ── Operations: Withdrawals ───────────────────────────────────────
   /api/withdrawals:
     post:
       operationId: createWithdrawal
       tags:
         - Operations
       summary: Create a withdrawal
-      description: "TODO: Add request/response schemas from fx-payment docs."
+      description: Creates a withdrawal to an external destination — a saved beneficiary, inline beneficiary, PIX QR code, or boleto.
       parameters:
-        - name: X-Idempotency-Key
-          in: header
-          required: true
-          schema:
-            type: string
-        - name: X-Trace-Version
-          in: header
-          required: false
-          schema:
-            type: string
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/TraceVersion"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateWithdrawalRequest"
+            examples:
+              savedBeneficiary:
+                summary: Withdraw to a saved beneficiary
+                value:
+                  accountId: "a1b2c3d4-5e6f-7890-abcd-ef1234567890"
+                  sourceAsset: "BRL"
+                  targetAsset: "BRL"
+                  sourceAmountValue: 100000
+                  destination:
+                    type: "BENEFICIARY_REFERENCE"
+                    paymentInstructionId: "b2c3d4e5-f6a7-8901-bcde-f12345678901"
+              inlinePix:
+                summary: Withdraw to an inline PIX beneficiary
+                value:
+                  accountId: "a1b2c3d4-5e6f-7890-abcd-ef1234567890"
+                  sourceAsset: "BRL"
+                  targetAsset: "BRL"
+                  sourceAmountValue: 50000
+                  destination:
+                    type: "BENEFICIARY"
+                    name: "João Silva"
+                    taxId: "12345678900"
+                    beneficiaryType: "INDIVIDUAL"
+                    account:
+                      type: "PIX"
+                      pixKeyType: "EMAIL"
+                      pixKey: "joao@example.com"
+              qrCode:
+                summary: Pay a PIX QR code
+                value:
+                  accountId: "a1b2c3d4-5e6f-7890-abcd-ef1234567890"
+                  sourceAsset: "BRL"
+                  targetAsset: "BRL"
+                  sourceAmountValue: 25000
+                  destination:
+                    type: "QR_CODE"
+                    payload: "00020126580014br.gov.bcb.pix..."
       responses:
         "201":
           description: Withdrawal created.
-        "400":
-          description: Invalid request data.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: "#/components/schemas/OperationResponse"
+        "401":
+          description: Missing or invalid authentication token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Account, beneficiary, or payment instruction not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Validation error (invalid amount, invalid destination, beneficiary not approved).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
-  # --- Operations: Swaps ---
+  # ── Operations: Swaps ─────────────────────────────────────────────
   /api/swaps:
     post:
       operationId: createSwap
       tags:
         - Operations
       summary: Create a swap
-      description: "TODO: Add request/response schemas from fx-payment docs."
+      description: Converts funds between two assets within the same account. A quote is created automatically and included in the response. Swaps are forward-only and cannot be reversed once the balance is debited.
       parameters:
-        - name: X-Idempotency-Key
-          in: header
-          required: true
-          schema:
-            type: string
-        - name: X-Trace-Version
-          in: header
-          required: false
-          schema:
-            type: string
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/TraceVersion"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSwapRequest"
+            examples:
+              usdtToBrl:
+                summary: Convert USDT to BRL
+                value:
+                  accountId: "a1b2c3d4-5e6f-7890-abcd-ef1234567890"
+                  sourceAsset: "USDT"
+                  targetAsset: "BRL"
+                  sourceAmountValue: 10000
       responses:
         "201":
           description: Swap created.
-        "400":
-          description: Invalid request data.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: "#/components/schemas/OperationResponse"
+        "401":
+          description: Missing or invalid authentication token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Account not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Validation error (same asset, invalid amount, invalid source or target asset).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
-  # --- Operations: Read ---
+  # ── Operations: Read ──────────────────────────────────────────────
   /api/operations/{operationId}:
     get:
       operationId: getOperation
       tags:
         - Operations
       summary: Get an operation
-      description: "TODO: Add response schema from fx-payment docs."
+      description: Retrieves the full details of an operation by its ID.
       parameters:
-        - name: operationId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - name: X-Trace-Version
-          in: header
-          required: false
-          schema:
-            type: string
+        - $ref: "#/components/parameters/OperationId"
+        - $ref: "#/components/parameters/TraceVersion"
       responses:
         "200":
           description: Operation details.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationResponse"
+        "401":
+          description: Missing or invalid authentication token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: Operation not found.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: "#/components/schemas/ErrorResponse"
 
   /api/operations:
     get:
@@ -162,60 +1098,185 @@ paths:
       tags:
         - Operations
       summary: List operations
-      description: "TODO: Add query parameters and response schema from fx-payment docs."
+      description: Lists all operations for the authenticated customer. Results are paginated and can be filtered by type or status.
       parameters:
-        - name: X-Trace-Version
-          in: header
+        - $ref: "#/components/parameters/TraceVersion"
+        - $ref: "#/components/parameters/PaginationLimit"
+        - $ref: "#/components/parameters/PaginationCursor"
+        - name: type
+          in: query
           required: false
+          description: Filter by operation type.
           schema:
             type: string
+            enum:
+              - DEPOSIT
+              - WITHDRAWAL
+              - SWAP
+        - name: status
+          in: query
+          required: false
+          description: Filter by operation status.
+          schema:
+            type: string
+            enum:
+              - PENDING
+              - IN_REVIEW
+              - PROCESSING
+              - DEBITED
+              - COMPLETED
+              - FAILED
       responses:
         "200":
           description: Paginated list of operations.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/OperationResponse"
+                  meta:
+                    $ref: "#/components/schemas/PageMetadata"
+                required:
+                  - data
+                  - meta
+        "401":
+          description: Missing or invalid authentication token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Invalid filter parameter.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
-  # --- Beneficiaries ---
+  # ── Beneficiaries ─────────────────────────────────────────────────
   /api/beneficiaries:
     post:
       operationId: createBeneficiary
       tags:
         - Beneficiaries
       summary: Create a beneficiary
-      description: "TODO: Add request/response schemas from fx-payment docs."
+      description: Registers a new beneficiary for withdrawals. Initiates a compliance review — the beneficiary starts in `PENDING_REVIEW` status and transitions to `APPROVED` or `REJECTED` asynchronously.
       parameters:
-        - name: X-Idempotency-Key
-          in: header
-          required: true
-          schema:
-            type: string
-        - name: X-Trace-Version
-          in: header
-          required: false
-          schema:
-            type: string
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/TraceVersion"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBeneficiaryRequest"
+            examples:
+              pixIndividual:
+                summary: Individual with PIX key
+                value:
+                  holder:
+                    type: "INDIVIDUAL"
+                    name: "João Silva"
+                    taxId: "12345678900"
+                  paymentInstruction:
+                    type: "PIX"
+                    pixKeyType: "EMAIL"
+                    pixKey: "joao@example.com"
+              bankCompany:
+                summary: Company with bank account
+                value:
+                  holder:
+                    type: "COMPANY"
+                    legalName: "Acme Importação Ltda"
+                    taxId: "12345678000100"
+                  paymentInstruction:
+                    type: "BANK_ACCOUNT"
+                    bankCode: "001"
+                    branch: "0001"
+                    accountNumber: "123456"
+                    accountType: "CHECKING"
+              cryptoWallet:
+                summary: Individual with crypto wallet
+                value:
+                  holder:
+                    type: "INDIVIDUAL"
+                    name: "Jane Doe"
+                  paymentInstruction:
+                    type: "CRYPTO_WALLET"
+                    address: "0x742d35Cc6634C0532925a3b844Bc9e7595f2bD18"
+                    chain: "ETHEREUM"
+                    asset: "USDT"
       responses:
         "201":
-          description: Beneficiary created.
-        "400":
-          description: Invalid request data.
+          description: Beneficiary created with `PENDING_REVIEW` status.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: "#/components/schemas/BeneficiaryResponse"
+        "401":
+          description: Missing or invalid authentication token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Validation error (invalid holder type, invalid instruction type, missing details).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
     get:
       operationId: listBeneficiaries
       tags:
         - Beneficiaries
       summary: List beneficiaries
-      description: "TODO: Add query parameters and response schema from fx-payment docs."
+      description: Lists all beneficiaries for the authenticated customer. Results are paginated and can be filtered by status.
       parameters:
-        - name: X-Trace-Version
-          in: header
+        - $ref: "#/components/parameters/TraceVersion"
+        - $ref: "#/components/parameters/PaginationLimit"
+        - $ref: "#/components/parameters/PaginationCursor"
+        - name: status
+          in: query
           required: false
+          description: Filter by beneficiary status.
           schema:
             type: string
+            enum:
+              - PENDING_REVIEW
+              - APPROVED
+              - REJECTED
       responses:
         "200":
           description: Paginated list of beneficiaries.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/BeneficiaryResponse"
+                  meta:
+                    $ref: "#/components/schemas/PageMetadata"
+                required:
+                  - data
+                  - meta
+        "401":
+          description: Missing or invalid authentication token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Invalid filter parameter.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /api/beneficiaries/{beneficiaryId}:
     get:
@@ -223,143 +1284,184 @@ paths:
       tags:
         - Beneficiaries
       summary: Get a beneficiary
-      description: "TODO: Add response schema from fx-payment docs."
+      description: Retrieves a specific beneficiary by ID.
       parameters:
-        - name: beneficiaryId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - name: X-Trace-Version
-          in: header
-          required: false
-          schema:
-            type: string
+        - $ref: "#/components/parameters/BeneficiaryId"
+        - $ref: "#/components/parameters/TraceVersion"
       responses:
         "200":
           description: Beneficiary details.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeneficiaryResponse"
+        "401":
+          description: Missing or invalid authentication token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: Beneficiary not found.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: "#/components/schemas/ErrorResponse"
     put:
       operationId: updateBeneficiary
       tags:
         - Beneficiaries
       summary: Update a beneficiary
-      description: "TODO: Add request/response schemas from fx-payment docs."
+      description: Updates the holder information of a beneficiary. Does not modify payment instructions — use the payment instruction endpoints for that.
       parameters:
-        - name: beneficiaryId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - name: X-Trace-Version
-          in: header
-          required: false
-          schema:
-            type: string
+        - $ref: "#/components/parameters/BeneficiaryId"
+        - $ref: "#/components/parameters/TraceVersion"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateBeneficiaryRequest"
+            examples:
+              updateName:
+                summary: Update holder name
+                value:
+                  holder:
+                    type: "INDIVIDUAL"
+                    name: "João Carlos Silva"
+                    taxId: "12345678900"
       responses:
         "200":
           description: Beneficiary updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeneficiaryResponse"
+        "401":
+          description: Missing or invalid authentication token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: Beneficiary not found.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Validation error (invalid holder type).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
     delete:
       operationId: deleteBeneficiary
       tags:
         - Beneficiaries
       summary: Delete a beneficiary
-      description: "TODO: Add response details from fx-payment docs."
+      description: Removes a beneficiary and all its payment instructions.
       parameters:
-        - name: beneficiaryId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - name: X-Trace-Version
-          in: header
-          required: false
-          schema:
-            type: string
+        - $ref: "#/components/parameters/BeneficiaryId"
+        - $ref: "#/components/parameters/TraceVersion"
       responses:
         "204":
           description: Beneficiary deleted.
+        "401":
+          description: Missing or invalid authentication token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: Beneficiary not found.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: "#/components/schemas/ErrorResponse"
 
+  # ── Payment instructions ──────────────────────────────────────────
   /api/beneficiaries/{beneficiaryId}/payment-instructions:
     post:
       operationId: addPaymentInstruction
       tags:
-        - Beneficiaries
+        - Payment instructions
       summary: Add a payment instruction
-      description: "TODO: Add request/response schemas from fx-payment docs."
+      description: Adds a new payment instruction to an existing beneficiary.
       parameters:
-        - name: beneficiaryId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - name: X-Trace-Version
-          in: header
-          required: false
-          schema:
-            type: string
+        - $ref: "#/components/parameters/BeneficiaryId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/TraceVersion"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PaymentInstructionRequest"
+            examples:
+              pix:
+                summary: Add a PIX key
+                value:
+                  type: "PIX"
+                  pixKeyType: "CPF"
+                  pixKey: "12345678900"
+              bankAccount:
+                summary: Add a bank account (TED)
+                value:
+                  type: "BANK_ACCOUNT"
+                  bankCode: "001"
+                  branch: "0001"
+                  accountNumber: "123456"
+                  accountType: "CHECKING"
       responses:
         "201":
-          description: Payment instruction added.
+          description: Payment instruction added. Returns the full beneficiary.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeneficiaryResponse"
+        "401":
+          description: Missing or invalid authentication token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: Beneficiary not found.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Validation error (invalid instruction type, missing details).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /api/beneficiaries/{beneficiaryId}/payment-instructions/{paymentInstructionId}:
     delete:
       operationId: removePaymentInstruction
       tags:
-        - Beneficiaries
+        - Payment instructions
       summary: Remove a payment instruction
-      description: "TODO: Add response details from fx-payment docs."
+      description: Removes a payment instruction from a beneficiary.
       parameters:
-        - name: beneficiaryId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - name: paymentInstructionId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - name: X-Trace-Version
-          in: header
-          required: false
-          schema:
-            type: string
+        - $ref: "#/components/parameters/BeneficiaryId"
+        - $ref: "#/components/parameters/PaymentInstructionId"
+        - $ref: "#/components/parameters/TraceVersion"
       responses:
         "204":
           description: Payment instruction removed.
+        "401":
+          description: Missing or invalid authentication token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: Beneficiary or payment instruction not found.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: "#/components/schemas/ErrorResponse"
