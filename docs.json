@@ -1,21 +1,45 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
-  "name": "Trace Finance Developer Docs",
+  "theme": "palm",
+  "name": "Trace Finance",
   "colors": {
     "primary": "#15803D",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "light": "#18E299",
+    "dark": "#0C8C5E"
   },
   "favicon": "/favicon.svg",
   "logo": {
     "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
+    "dark": "/logo/dark.svg",
+    "href": "https://tracefinance.io"
+  },
+  "appearance": {
+    "default": "dark"
+  },
+  "background": {
+    "decoration": "gradient"
+  },
+  "fonts": {
+    "heading": {
+      "family": "Inter",
+      "weight": 600
+    },
+    "body": {
+      "family": "Inter",
+      "weight": 400
+    }
+  },
+  "styling": {
+    "eyebrows": "breadcrumbs",
+    "codeblocks": {
+      "theme": "tokyo-night"
+    }
   },
   "navigation": {
     "tabs": [
       {
         "tab": "Guides",
+        "icon": "book-open",
         "groups": [
           {
             "group": "Getting started",
@@ -32,6 +56,7 @@
               "guides/principles/versioning",
               "guides/principles/idempotency",
               "guides/principles/pagination",
+              "guides/principles/filtering",
               "guides/principles/money",
               "guides/principles/errors"
             ]
@@ -72,7 +97,12 @@
         "label": "Support",
         "href": "mailto:support@tracefinance.io"
       }
-    ]
+    ],
+    "primary": {
+      "type": "button",
+      "label": "Get started",
+      "href": "/quickstart"
+    }
   },
   "api": {
     "baseUrl": [
@@ -83,7 +113,12 @@
       "method": "bearer"
     }
   },
-  "description": "API documentation for Trace Finance's multi-currency account and payment platform.",
+  "description": "Explore guides, examples, and API references to build with Trace Finance.",
+  "variables": {
+    "sandboxUrl": "https://faas.sandbox.tracefinance.io",
+    "productionUrl": "https://faas.tracefinance.io",
+    "authUrl": "https://auth.tracefinance.io"
+  },
   "seo": {
     "indexing": "navigable"
   },
