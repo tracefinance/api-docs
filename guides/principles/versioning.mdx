@@ -3,4 +3,68 @@ title: "Versioning"
 description: "How API versioning works via the X-Trace-Version header."
 ---
 
-{/* TODO: Write versioning guide — X-Trace-Version header, default version behavior, deprecation policy */}
+## Overview
+
+The Trace FX API uses the `X-Trace-Version` header to route requests to a specific API version. This lets you pin your integration to a known version while newer versions are released.
+
+## How it works
+
+### Setting the version
+
+Include the `X-Trace-Version` header in your requests:
+
+```bash
+curl --request GET \
+  --url {{sandboxUrl}}/api/accounts \
+  --header 'Authorization: Bearer <token>' \
+  --header 'X-Trace-Version: 2'
+```
+
+If the header is omitted, empty, or contains a non-existent version, the request is routed to the **default version** configured by Trace.
+
+<Tip>
+  Always pin a version in production to avoid unexpected behavior when the default changes.
+</Tip>
+
+### Non-breaking changes
+
+The following changes do not require a new version. They can be released at any time:
+
+- Adding new **optional** fields to responses
+- Adding new endpoints
+- Adding new optional query parameters
+
+<Info>
+  Configure your client to ignore unknown fields in responses. Strict validation may cause failures when optional fields are added.
+</Info>
+
+### Breaking changes
+
+The following changes trigger a **new major version**:
+
+- Removing or renaming existing fields
+- Changing a field's data type (e.g. integer to string)
+- Making an optional field required
+- Reorganizing the response structure
+- Changing endpoint behavior, status codes, or error responses
+- Adding new enum values that affect strict validation
+
+### Deprecation policy
+
+When a new version is released, the previous version remains available for a migration period. Deprecation timelines are communicated in advance so you can plan your upgrade.
+
+## Examples
+
+Pinned version:
+
+```bash
+X-Trace-Version: 2
+```
+
+No version header (uses default):
+
+```bash
+curl --request GET \
+  --url {{sandboxUrl}}/api/accounts \
+  --header 'Authorization: Bearer <token>'
+```

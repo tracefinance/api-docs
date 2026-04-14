@@ -1,0 +1,87 @@
+---
+title: "Filtering"
+description: "Refine list results using the filters query parameter."
+---
+
+## Overview
+
+List endpoints support a `filters` query parameter that lets you narrow results by field values, ranges, and patterns using LHS Brackets syntax.
+
+## How it works
+
+### Syntax
+
+Filters follow the format `field[operator]=value`:
+
+```text
+?filters=field[operator]=value
+```
+
+Combine multiple filters with a semicolon (`;`) — groups separated by `;` are implicitly AND-ed. Group conditions with logical operators `and(...)` and `or(...)`, separating conditions inside with commas.
+
+Use the string `null` to filter for null values: `field[eq]=null`.
+
+### Operators
+
+| Operator | Description | Example |
+| --- | --- | --- |
+| `eq` | Equals | `id[eq]=abc-123` |
+| `ne` | Not equals | `status[ne]=CLOSED` |
+| `gt` | Greater than | `amount.value[gt]=1000` |
+| `gte` | Greater than or equal | `createdAt[gte]=2025-01-01T00:00:00Z` |
+| `lt` | Less than | `amount.value[lt]=50000` |
+| `lte` | Less than or equal | `createdAt[lte]=2025-12-31T23:59:59Z` |
+| `in` | Matches any value in list (pipe-separated) | `type[in]=CHECKING\|SAVING` |
+| `nin` | Excludes values in list (pipe-separated) | `status[nin]=CLOSED\|SUSPENDED` |
+| `like` | Case-insensitive partial match | `name[like]=trace` |
+| `text` | Full-text search (case-insensitive) | `description[text]=payment` |
+| `last` | Last element of array equals | `states.status[last]=ACTIVE` |
+| `last_ne` | Last element of array not equals | `states.status[last_ne]=CLOSED` |
+
+### Logical operators
+
+Combine conditions using `and(...)` or `or(...)`:
+
+```text
+?filters=and(amount.value[gt]=1000,amount.value[lt]=50000)
+```
+
+## Examples
+
+**Filter by ID:**
+
+```bash
+?filters=id[eq]=399ca839-abd5-4a7d-981b-f187e7777ec8
+```
+
+**Filter by date range:**
+
+```bash
+?filters=and(createdAt[gte]=2025-01-01T00:00:00Z,createdAt[lte]=2025-01-31T23:59:59Z)
+```
+
+**Filter by type (multiple values):**
+
+```bash
+?filters=type[in]=CHECKING|SAVING
+```
+
+**Filter by current status:**
+
+```bash
+?filters=states.status[last]=ACTIVE
+```
+
+**Combined filters:**
+
+```bash
+?filters=states.status[last]=ACTIVE;and(amount.value[gt]=1000,amount.value[lt]=50000)
+```
+
+Full request example:
+
+```bash
+curl --request GET \
+  --url '{{sandboxUrl}}/api/accounts?limit=10&filters=states.status[last]=ACTIVE' \
+  --header 'Authorization: Bearer <token>'
+```

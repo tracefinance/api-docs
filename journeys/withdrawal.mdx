@@ -3,4 +3,65 @@ title: "Make a withdrawal"
 description: "How to create a withdrawal and handle the review process."
 ---
 
-{/* TODO: Write journey — withdrawal flow with and without compliance review, beneficiary setup */}
+import SandboxNote from '/snippets/sandbox-note.mdx';
+
+<SandboxNote />
+
+## Overview
+
+Withdrawals move funds from an account to an external destination — a bank account (via TED or PIX) or a crypto wallet. Some withdrawals go through a compliance review before being processed.
+
+## Prerequisites
+
+- An [active account](/journeys/open-brl-account) with sufficient balance.
+- A registered **beneficiary** for the destination (bank account or wallet).
+- Valid [authentication credentials](/guides/authentication).
+
+## Steps
+
+<Steps>
+  <Step title="Register a beneficiary (if needed)">
+    Before withdrawing to a new destination, register the beneficiary:
+
+    ```bash
+    curl --request POST \
+      --url {{sandboxUrl}}/api/beneficiaries \
+      --header 'Authorization: Bearer <token>' \
+
+      --header 'X-Idempotency-Key: <unique-key>' \
+      --header 'Content-Type: application/json' \
+      --data '{
+        "name": "Beneficiary Name",
+        "type": "BANK_ACCOUNT"
+      }'
+    ```
+
+    Wait for the `beneficiary.approved` webhook event before proceeding. The beneficiary may be rejected during compliance review.
+  </Step>
+  <Step title="Create the withdrawal">
+    ```bash
+    curl --request POST \
+      --url {{sandboxUrl}}/api/operations \
+      --header 'Authorization: Bearer <token>' \
+
+      --header 'X-Idempotency-Key: <unique-key>' \
+      --header 'Content-Type: application/json' \
+      --data '{
+        "type": "WITHDRAWAL",
+        "accountId": "<account-id>",
+        "beneficiaryId": "<beneficiary-id>",
+        "amount": {
+          "value": 100000,
+          "asset": "BRL"
+        }
+      }'
+    ```
+  </Step>
+  <Step title="Track the withdrawal">
+    The withdrawal may go through compliance review. Listen for `operation.created`, `operation.completed`, and `operation.failed` webhook events.
+  </Step>
+</Steps>
+
+## What happens next
+
+- [Execute a swap](/journeys/swap) — convert currencies before withdrawing.

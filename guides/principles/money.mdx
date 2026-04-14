@@ -3,4 +3,68 @@ title: "Money and currencies"
 description: "How monetary amounts are represented in the API."
 ---
 
-{/* TODO: Write money guide — value in minor units (integer), asset as ISO 4217 currency code, supported currencies */}
+## Overview
+
+All monetary amounts in the Trace FX API are represented as integers in **minor units** (e.g. cents) paired with an ISO 4217 currency code. This avoids floating-point precision issues.
+
+## How it works
+
+### Amount object
+
+Every amount in the API uses the same structure:
+
+```json
+{
+  "value": 11,
+  "decimalValue": "0.11",
+  "asset": "BRL",
+  "decimals": 2
+}
+```
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `value` | integer | Amount in the smallest currency unit (e.g. centavos for BRL, cents for USD) |
+| `decimalValue` | string | Human-readable decimal representation of the amount |
+| `asset` | string | ISO 4217 currency code |
+| `decimals` | integer | Number of decimal places for the currency |
+
+### Examples by currency
+
+| `value` | `decimals` | `asset` | `decimalValue` |
+| --- | --- | --- | --- |
+| `500000` | `2` | `BRL` | `"5000.00"` |
+| `1050` | `2` | `USD` | `"10.50"` |
+| `100000000` | `8` | `BTC` | `"1.00000000"` |
+
+<Warning>
+  Always use integer arithmetic when working with `value`. The `decimalValue` field is provided for display purposes only.
+</Warning>
+
+## Examples
+
+A deposit of R$ 1.250,00:
+
+```json
+{
+  "amount": {
+    "value": 125000,
+    "decimalValue": "1250.00",
+    "asset": "BRL",
+    "decimals": 2
+  }
+}
+```
+
+A withdrawal of $500.00:
+
+```json
+{
+  "amount": {
+    "value": 50000,
+    "decimalValue": "500.00",
+    "asset": "USD",
+    "decimals": 2
+  }
+}
+```
