@@ -1,0 +1,23 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 .claude/hooks/validate-frontmatter.py"
+          },
+          {
+            "type": "command",
+            "command": "python3 .claude/hooks/validate-body-sections.py"
+          },
+          {
+            "type": "command",
+            "command": "python3 .claude/hooks/check-description.py"
+          }
+        ]
+      }
+    ]
+  }
+}

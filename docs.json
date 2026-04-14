@@ -1,13 +1,17 @@
 {
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
-  "name": "Mint Starter Kit",
+  "name": "Trace Finance Developer Docs",
   "colors": {
-    "primary": "#16A34A",
+    "primary": "#15803D",
     "light": "#07C983",
     "dark": "#15803D"
   },
   "favicon": "/favicon.svg",
+  "logo": {
+    "light": "/logo/light.svg",
+    "dark": "/logo/dark.svg"
+  },
   "navigation": {
     "tabs": [
       {
@@ -18,51 +22,35 @@
             "pages": [
               "index",
               "quickstart",
-              "development"
+              "guides/authentication",
+              "guides/environments"
             ]
           },
           {
-            "group": "Customization",
+            "group": "API principles",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              "guides/principles/versioning",
+              "guides/principles/idempotency",
+              "guides/principles/pagination",
+              "guides/principles/money",
+              "guides/principles/errors"
             ]
           },
           {
-            "group": "Writing content",
+            "group": "Journeys",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
+              "journeys/open-brl-account",
+              "journeys/open-crypto-account",
+              "journeys/deposit",
+              "journeys/withdrawal",
+              "journeys/swap"
             ]
           },
           {
-            "group": "AI tools",
+            "group": "Webhooks",
             "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
-            ]
-          }
-        ]
-      },
-      {
-        "tab": "API reference",
-        "groups": [
-          {
-            "group": "API documentation",
-            "pages": [
-              "api-reference/introduction"
-            ]
-          },
-          {
-            "group": "Endpoint examples",
-            "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "webhooks/overview",
+              "webhooks/events"
             ]
           }
         ]
@@ -71,52 +59,44 @@
     "global": {
       "anchors": [
         {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
+          "anchor": "API Status",
+          "href": "https://status.tracefinance.io",
+          "icon": "signal"
         }
       ]
     }
-  },
-  "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
   },
   "navbar": {
     "links": [
       {
         "label": "Support",
-        "href": "mailto:hi@mintlify.com"
+        "href": "mailto:support@tracefinance.io"
       }
+    ]
+  },
+  "api": {
+    "baseUrl": [
+      "https://faas.sandbox.tracefinance.io",
+      "https://faas.tracefinance.io"
     ],
-    "primary": {
-      "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
+    "auth": {
+      "method": "bearer"
     }
   },
-  "contextual": {
-    "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
+  "description": "API documentation for Trace Finance's multi-currency account and payment platform.",
+  "seo": {
+    "indexing": "navigable"
+  },
+  "search": {
+    "placeholder": "Search docs..."
+  },
+  "metadata": {
+    "lastUpdatedDate": true
   },
   "footer": {
     "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
+      "github": "https://github.com/tracefinance",
+      "linkedin": "https://linkedin.com/company/tracefinance"
     }
   }
 }

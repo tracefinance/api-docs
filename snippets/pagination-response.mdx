@@ -1,0 +1,15 @@
+List endpoints return a paginated response:
+
+```json
+{
+  "data": [],
+  "meta": {
+    "previousCursor": "string or null",
+    "nextCursor": "string or null",
+    "total": 42,
+    "totalMatches": 42
+  }
+}
+```
+
+Pass `nextCursor` as a query parameter to fetch the next page. See [Pagination](/guides/principles/pagination).
