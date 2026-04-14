@@ -1,0 +1,187 @@
+openapi: 3.1.1
+info:
+  title: Trace FX Accounts API
+  version: 1.0.0
+  description: API for managing multi-currency accounts on the Trace FX platform.
+servers:
+  - url: https://faas.sandbox.tracefinance.io/account
+    description: Sandbox
+  - url: https://faas.tracefinance.io/account
+    description: Production
+security:
+  - bearerAuth: []
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: "Auth0 JWT token. Include as `Authorization: Bearer <token>`."
+  schemas:
+    AddressResponse:
+      type: object
+      properties:
+        street:
+          type: string
+          example: "Rua das Flores"
+        number:
+          type: string
+          example: "100"
+        district:
+          type: string
+          example: "Centro"
+        city:
+          type: string
+          example: "São Paulo"
+        state:
+          type: string
+          example: "SP"
+        country:
+          type: string
+          example: "BR"
+        zipCode:
+          type: string
+          example: "01000-000"
+        complement:
+          type: string
+          nullable: true
+          example: "Apto 101"
+      required:
+        - street
+        - number
+        - district
+        - city
+        - state
+        - country
+        - zipCode
+    OwnerResponse:
+      type: object
+      description: The account owner.
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+        name:
+          type: string
+          example: "ACME Ltda"
+        taxId:
+          type: string
+          example: "12345678000190"
+        address:
+          $ref: '#/components/schemas/AddressResponse'
+      required:
+        - id
+        - name
+        - taxId
+        - address
+    AccountResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "a1b2c3d4-5e6f-7890-abcd-ef1234567890"
+        externalId:
+          type: string
+          nullable: true
+          description: Your own identifier for this account, if provided at creation.
+          example: "ext-123"
+        owner:
+          $ref: '#/components/schemas/OwnerResponse'
+        createdAt:
+          type: string
+          format: date-time
+          example: "2025-01-15T10:30:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2025-01-15T10:30:00Z"
+      required:
+        - id
+        - owner
+        - createdAt
+        - updatedAt
+    ErrorResponse:
+      type: object
+      properties:
+        code:
+          type: string
+          example: "RESOURCE_NOT_FOUND"
+        message:
+          type: string
+          example: "The requested resource was not found"
+        details:
+          type: object
+          additionalProperties: true
+          example: {}
+      required:
+        - code
+        - message
+paths:
+  /api/accounts/{accountId}:
+    get:
+      operationId: getAccountById
+      tags:
+        - Accounts
+      summary: Get an account
+      description: Retrieve the details of an account by its ID.
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          description: UUID of the account.
+          schema:
+            type: string
+            format: uuid
+        - name: X-Trace-Version
+          in: header
+          required: false
+          description: API version. Omit to use the default version.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Account details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountResponse'
+              examples:
+                success:
+                  value:
+                    id: "a1b2c3d4-5e6f-7890-abcd-ef1234567890"
+                    externalId: "ext-123"
+                    owner:
+                      id: "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+                      name: "ACME Ltda"
+                      taxId: "12345678000190"
+                      address:
+                        street: "Rua das Flores"
+                        number: "100"
+                        district: "Centro"
+                        city: "São Paulo"
+                        state: "SP"
+                        country: "BR"
+                        zipCode: "01000-000"
+                        complement: "Apto 101"
+                    createdAt: "2025-01-15T10:30:00Z"
+                    updatedAt: "2025-01-15T10:30:00Z"
+        "400":
+          description: Invalid request data.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "401":
+          description: Missing or invalid authentication token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "404":
+          description: Account not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'

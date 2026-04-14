@@ -1,0 +1,364 @@
+openapi: 3.1.1
+info:
+  title: Trace FX Payments API
+  version: 1.0.0
+  description: |
+    API for deposits, withdrawals, swaps, and beneficiary management
+    on the Trace FX platform.
+
+    **This spec is a scaffold — endpoints require request/response schemas.**
+servers:
+  - url: https://faas.sandbox.tracefinance.io/payment
+    description: Sandbox
+  - url: https://faas.tracefinance.io/payment
+    description: Production
+security:
+  - bearerAuth: []
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: "Auth0 JWT token. Include as `Authorization: Bearer <token>`."
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        code:
+          type: string
+          example: "RESOURCE_NOT_FOUND"
+        message:
+          type: string
+          example: "The requested resource was not found"
+        details:
+          type: object
+          additionalProperties: true
+      required:
+        - code
+        - message
+paths:
+  # --- Operations: Deposits ---
+  /api/deposits:
+    post:
+      operationId: createDeposit
+      tags:
+        - Operations
+      summary: Create a deposit
+      description: "TODO: Add request/response schemas from fx-payment docs."
+      parameters:
+        - name: X-Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+        - name: X-Trace-Version
+          in: header
+          required: false
+          schema:
+            type: string
+      responses:
+        "201":
+          description: Deposit created.
+        "400":
+          description: Invalid request data.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # --- Operations: Withdrawals ---
+  /api/withdrawals:
+    post:
+      operationId: createWithdrawal
+      tags:
+        - Operations
+      summary: Create a withdrawal
+      description: "TODO: Add request/response schemas from fx-payment docs."
+      parameters:
+        - name: X-Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+        - name: X-Trace-Version
+          in: header
+          required: false
+          schema:
+            type: string
+      responses:
+        "201":
+          description: Withdrawal created.
+        "400":
+          description: Invalid request data.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # --- Operations: Swaps ---
+  /api/swaps:
+    post:
+      operationId: createSwap
+      tags:
+        - Operations
+      summary: Create a swap
+      description: "TODO: Add request/response schemas from fx-payment docs."
+      parameters:
+        - name: X-Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+        - name: X-Trace-Version
+          in: header
+          required: false
+          schema:
+            type: string
+      responses:
+        "201":
+          description: Swap created.
+        "400":
+          description: Invalid request data.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # --- Operations: Read ---
+  /api/operations/{operationId}:
+    get:
+      operationId: getOperation
+      tags:
+        - Operations
+      summary: Get an operation
+      description: "TODO: Add response schema from fx-payment docs."
+      parameters:
+        - name: operationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-Trace-Version
+          in: header
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Operation details.
+        "404":
+          description: Operation not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/operations:
+    get:
+      operationId: listOperations
+      tags:
+        - Operations
+      summary: List operations
+      description: "TODO: Add query parameters and response schema from fx-payment docs."
+      parameters:
+        - name: X-Trace-Version
+          in: header
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Paginated list of operations.
+
+  # --- Beneficiaries ---
+  /api/beneficiaries:
+    post:
+      operationId: createBeneficiary
+      tags:
+        - Beneficiaries
+      summary: Create a beneficiary
+      description: "TODO: Add request/response schemas from fx-payment docs."
+      parameters:
+        - name: X-Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+        - name: X-Trace-Version
+          in: header
+          required: false
+          schema:
+            type: string
+      responses:
+        "201":
+          description: Beneficiary created.
+        "400":
+          description: Invalid request data.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    get:
+      operationId: listBeneficiaries
+      tags:
+        - Beneficiaries
+      summary: List beneficiaries
+      description: "TODO: Add query parameters and response schema from fx-payment docs."
+      parameters:
+        - name: X-Trace-Version
+          in: header
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Paginated list of beneficiaries.
+
+  /api/beneficiaries/{beneficiaryId}:
+    get:
+      operationId: getBeneficiary
+      tags:
+        - Beneficiaries
+      summary: Get a beneficiary
+      description: "TODO: Add response schema from fx-payment docs."
+      parameters:
+        - name: beneficiaryId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-Trace-Version
+          in: header
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Beneficiary details.
+        "404":
+          description: Beneficiary not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      operationId: updateBeneficiary
+      tags:
+        - Beneficiaries
+      summary: Update a beneficiary
+      description: "TODO: Add request/response schemas from fx-payment docs."
+      parameters:
+        - name: beneficiaryId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-Trace-Version
+          in: header
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Beneficiary updated.
+        "404":
+          description: Beneficiary not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      operationId: deleteBeneficiary
+      tags:
+        - Beneficiaries
+      summary: Delete a beneficiary
+      description: "TODO: Add response details from fx-payment docs."
+      parameters:
+        - name: beneficiaryId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-Trace-Version
+          in: header
+          required: false
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Beneficiary deleted.
+        "404":
+          description: Beneficiary not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/beneficiaries/{beneficiaryId}/payment-instructions:
+    post:
+      operationId: addPaymentInstruction
+      tags:
+        - Beneficiaries
+      summary: Add a payment instruction
+      description: "TODO: Add request/response schemas from fx-payment docs."
+      parameters:
+        - name: beneficiaryId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-Trace-Version
+          in: header
+          required: false
+          schema:
+            type: string
+      responses:
+        "201":
+          description: Payment instruction added.
+        "404":
+          description: Beneficiary not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/beneficiaries/{beneficiaryId}/payment-instructions/{paymentInstructionId}:
+    delete:
+      operationId: removePaymentInstruction
+      tags:
+        - Beneficiaries
+      summary: Remove a payment instruction
+      description: "TODO: Add response details from fx-payment docs."
+      parameters:
+        - name: beneficiaryId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: paymentInstructionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-Trace-Version
+          in: header
+          required: false
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Payment instruction removed.
+        "404":
+          description: Beneficiary or payment instruction not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
