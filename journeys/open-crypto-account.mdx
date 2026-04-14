@@ -38,7 +38,7 @@ This guide walks you through creating a crypto asset account for an account owne
     The account is returned in `PENDING` status.
   </Step>
   <Step title="Wait for activation">
-    The account goes through compliance checks. Listen for the [`account.activated`](/webhooks/events) webhook event or poll the account endpoint until the status changes to `ACTIVE`.
+    The account goes through compliance checks. Listen for the `account.activated` webhook event or poll the account endpoint until the status changes to `ACTIVE`.
   </Step>
   <Step title="Get the wallet address">
     Once active, retrieve the account details to obtain the wallet address for receiving crypto deposits.

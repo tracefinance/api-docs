@@ -44,13 +44,13 @@ Use this when you create the deposit intent before the funds arrive.
     The operation is created in `PENDING` status.
   </Step>
   <Step title="Track the deposit">
-    Listen for `operation.created`, `operation.completed`, and `operation.failed` [webhook events](/webhooks/events) as the deposit progresses.
+    Listen for `operation.created`, `operation.completed`, and `operation.failed` webhook events as the deposit progresses.
   </Step>
 </Steps>
 
 ### Money-first flow
 
-When funds arrive at the account before an explicit deposit intent is created, the platform automatically creates the operation and notifies you via [webhook events](/webhooks/events).
+When funds arrive at the account before an explicit deposit intent is created, the platform automatically creates the operation and notifies you via webhook events.
 
 ## What happens next
 

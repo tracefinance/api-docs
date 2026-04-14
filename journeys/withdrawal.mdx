@@ -36,7 +36,7 @@ Withdrawals move funds from an account to an external destination — a bank acc
       }'
     ```
 
-    Wait for the [`beneficiary.approved`](/webhooks/events) webhook event before proceeding. The beneficiary may be rejected during compliance review.
+    Wait for the `beneficiary.approved` webhook event before proceeding. The beneficiary may be rejected during compliance review.
   </Step>
   <Step title="Create the withdrawal">
     ```bash
@@ -58,11 +58,10 @@ Withdrawals move funds from an account to an external destination — a bank acc
     ```
   </Step>
   <Step title="Track the withdrawal">
-    The withdrawal may go through compliance review. Listen for `operation.created`, `operation.completed`, and `operation.failed` [webhook events](/webhooks/events).
+    The withdrawal may go through compliance review. Listen for `operation.created`, `operation.completed`, and `operation.failed` webhook events.
   </Step>
 </Steps>
 
 ## What happens next
 
 - [Execute a swap](/journeys/swap) — convert currencies before withdrawing.
-- [Webhooks](/webhooks/overview) — monitor all operation events.
