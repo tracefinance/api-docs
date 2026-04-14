@@ -13,7 +13,7 @@ List endpoints support a `filters` query parameter that lets you narrow results 
 
 Filters follow the format `field[operator]=value`:
 
-```
+```text
 ?filters=field[operator]=value
 ```
 
@@ -42,7 +42,7 @@ Use the string `null` to filter for null values: `field[eq]=null`.
 
 Combine conditions using `and(...)` or `or(...)`:
 
-```
+```text
 ?filters=and(amount.value[gt]=1000,amount.value[lt]=50000)
 ```
 

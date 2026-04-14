@@ -44,16 +44,16 @@ Generate a UUID v4 for each unique operation:
 
 <Tabs>
   <Tab title="Python">
-    ```python
-    import uuid
+```python
+import uuid
 
-    idempotency_key = str(uuid.uuid4())
-    ```
+idempotency_key = str(uuid.uuid4())
+```
   </Tab>
   <Tab title="JavaScript">
-    ```javascript
-    const idempotencyKey = crypto.randomUUID();
-    ```
+```javascript
+const idempotencyKey = crypto.randomUUID();
+```
   </Tab>
 </Tabs>
 
