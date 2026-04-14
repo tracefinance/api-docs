@@ -34,6 +34,7 @@ components:
         details:
           type: object
           additionalProperties: true
+          example: {}
       required:
         - code
         - message

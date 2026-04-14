@@ -23,7 +23,7 @@ def git_last_modified(file_path: Path) -> datetime | None:
         )
         if result.returncode == 0 and result.stdout.strip():
             return datetime.fromisoformat(result.stdout.strip())
-    except Exception:
+    except (OSError, ValueError):
         pass
     return None
 

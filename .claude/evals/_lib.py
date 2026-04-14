@@ -78,6 +78,7 @@ def parse_frontmatter(text: str) -> dict:
 # ── Content analysis ──────────────────────────────────────────────────
 
 HEADING_RE = re.compile(r"^(#{1,6})\s+(.+)$", re.MULTILINE)
+SECTION_HEADING_RE = re.compile(r"^##\s+(.+)$", re.MULTILINE)
 TODO_RE = re.compile(r"\{/\*\s*TODO:", re.IGNORECASE)
 PLACEHOLDER_PATTERNS = ["todo", "tbd", "placeholder", "fill in", "description here", "{{", "..."]
 
@@ -208,3 +209,43 @@ def output_result(name: str, score: float, total: int, passed: int,
             print(f"  - {issue.get('file', '?')}: {issue.get('message', '?')}", file=sys.stderr)
         if len(issues) > 10:
             print(f"  ... and {len(issues) - 10} more", file=sys.stderr)
+
+
+# ── Hook helpers ───────────────────────────────────────────────────────
+
+def load_hook_input() -> tuple[str, str] | None:
+    """Read PostToolUse hook JSON from stdin and return (file_path, content).
+
+    Returns None when the file should be skipped (non-MDX, snippet, template).
+    Handles both Write (content in payload) and Edit (read from disk) tools.
+    """
+    hook_input = json.load(sys.stdin)
+    tool_input = hook_input.get("tool_input", {})
+    file_path = tool_input.get("file_path", "")
+
+    if not file_path.endswith(".mdx"):
+        return None
+
+    if "/snippets/" in file_path or "/.claude/" in file_path:
+        return None
+
+    content = tool_input.get("content", "")
+    if not content:
+        try:
+            with open(file_path) as f:
+                content = f.read()
+        except (FileNotFoundError, PermissionError):
+            return None
+
+    return file_path, content
+
+
+def abs_to_rel(file_path: str) -> str:
+    """Convert an absolute file path to a path relative to the repo root.
+
+    Falls back to the filename if the path is not under REPO_ROOT.
+    """
+    try:
+        return str(Path(file_path).resolve().relative_to(REPO_ROOT))
+    except ValueError:
+        return Path(file_path).name
