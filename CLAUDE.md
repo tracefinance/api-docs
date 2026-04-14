@@ -23,7 +23,7 @@ Validation = `mint build` passes + `mint broken-links` passes + `mint accessibil
 
 ### Configuration
 
-**`docs.json`** is the source of truth for navigation, theming, and OpenAPI wiring. Two tabs: **Guides** and **API Reference**. Every page must be listed in `docs.json` or it won't appear in the sidebar.
+**`docs.json`** is the source of truth for navigation, theming, and OpenAPI wiring. Currently one tab: **Guides**. The **API Reference** tab will be added when OpenAPI schemas are fleshed out. Every page must be listed in `docs.json` or it won't appear in the sidebar.
 
 ### Content (MDX)
 
@@ -34,15 +34,12 @@ Pages are MDX with YAML frontmatter (`title` + `description` required). Mintlify
 | `guides/` | Authentication, environments, API principles (versioning, idempotency, pagination, money, errors) |
 | `journeys/` | End-to-end flows: open accounts, deposit, withdraw, swap |
 | `webhooks/` | Webhook setup and event catalog |
-| `reference/` | Hand-written overview pages and errors catalog (endpoint pages are auto-generated from OpenAPI) |
 | `snippets/` | Reusable MDX fragments imported into other pages |
-| `apis/` | OpenAPI specs — `fx-account/openapi.yml` and `fx-payment/openapi.yml` |
+| `apis/` | OpenAPI specs (scaffold) — `fx-account/openapi.yml` and `fx-payment/openapi.yml` |
 
-### API Reference (OpenAPI)
+### API Reference (OpenAPI) — deferred
 
-Endpoint pages auto-generate from `apis/{service}/openapi.yml`. To add an endpoint: update the spec, add the operation to `docs.json` navigation (e.g., `"POST /api/deposits"`), run `mint dev` to verify.
-
-Only `/api` channel endpoints are documented. `/dashboard` and `/admin` are internal.
+OpenAPI specs live in `apis/` but are not yet wired into `docs.json` navigation. When schemas are ready, add the `openapi` key and an API Reference tab to `docs.json`. Endpoint pages auto-generate from `apis/{service}/openapi.yml`. Only `/api` channel endpoints are documented. `/dashboard` and `/admin` are internal.
 
 ## Terminology
 
@@ -89,7 +86,7 @@ Registered in `.claude/settings.json` as PostToolUse hooks:
 | `description-quality` | Non-placeholder descriptions | 95% |
 | `orphan-detector` | Every .mdx in docs.json | 90% |
 | `navigation-coverage` | Every docs.json entry has .mdx | 90% |
-| `openapi-completeness` | No TODO stubs in OpenAPI specs | 50% |
+| `openapi-completeness` | No TODO stubs in OpenAPI specs | 50% (deferred from CI until API Reference tab is added) |
 
 Run a single eval: `python3 .claude/evals/{name}.py --json`
 Run all: use the `/evaluate` skill.

@@ -12,10 +12,6 @@
     "light": "/logo/light.svg",
     "dark": "/logo/dark.svg"
   },
-  "openapi": [
-    "apis/fx-account/openapi.yml",
-    "apis/fx-payment/openapi.yml"
-  ],
   "navigation": {
     "tabs": [
       {
@@ -55,47 +51,6 @@
             "pages": [
               "webhooks/overview",
               "webhooks/events"
-            ]
-          }
-        ]
-      },
-      {
-        "tab": "API Reference",
-        "groups": [
-          {
-            "group": "Accounts",
-            "pages": [
-              "reference/accounts-overview",
-              "GET /api/accounts/{accountId}"
-            ]
-          },
-          {
-            "group": "Operations",
-            "pages": [
-              "reference/payments-overview",
-              "POST /api/deposits",
-              "POST /api/withdrawals",
-              "POST /api/swaps",
-              "GET /api/operations/{operationId}",
-              "GET /api/operations"
-            ]
-          },
-          {
-            "group": "Beneficiaries",
-            "pages": [
-              "POST /api/beneficiaries",
-              "GET /api/beneficiaries/{beneficiaryId}",
-              "GET /api/beneficiaries",
-              "PUT /api/beneficiaries/{beneficiaryId}",
-              "DELETE /api/beneficiaries/{beneficiaryId}",
-              "POST /api/beneficiaries/{beneficiaryId}/payment-instructions",
-              "DELETE /api/beneficiaries/{beneficiaryId}/payment-instructions/{paymentInstructionId}"
-            ]
-          },
-          {
-            "group": "Errors",
-            "pages": [
-              "reference/errors-catalog"
             ]
           }
         ]
