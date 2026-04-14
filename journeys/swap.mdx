@@ -3,4 +3,70 @@ title: "Execute a swap"
 description: "How to convert between currencies using the swap endpoint."
 ---
 
-{/* TODO: Write journey — swap flow, quote integration, forward-only execution */}
+import SandboxNote from '/snippets/sandbox-note.mdx';
+
+<SandboxNote />
+
+## Overview
+
+Swaps convert funds between currencies within the platform — for example, BRL to USD or BTC to BRL. The flow is forward-only: once a swap is executed at the quoted rate, it cannot be reversed.
+
+## Prerequisites
+
+- An [active account](/journeys/open-brl-account) with sufficient balance in the source currency.
+- Valid [authentication credentials](/guides/authentication).
+
+## Steps
+
+<Steps>
+  <Step title="Request a quote">
+    Get the current exchange rate and confirm the amounts before executing:
+
+    ```bash
+    curl --request POST \
+      --url {{sandboxUrl}}/api/v1/quotes \
+      --header 'Authorization: Bearer <token>' \
+
+      --header 'Content-Type: application/json' \
+      --data '{
+        "from": "BRL",
+        "to": "USD",
+        "amount": {
+          "value": 500000,
+          "asset": "BRL"
+        }
+      }'
+    ```
+
+    The response includes the quoted rate and the resulting amount. Quotes are valid for a limited time.
+  </Step>
+  <Step title="Execute the swap">
+    Submit the swap using the quote ID:
+
+    ```bash
+    curl --request POST \
+      --url {{sandboxUrl}}/api/v1/operations \
+      --header 'Authorization: Bearer <token>' \
+
+      --header 'X-Idempotency-Key: <unique-key>' \
+      --header 'Content-Type: application/json' \
+      --data '{
+        "type": "SWAP",
+        "quoteId": "<quote-id>",
+        "accountId": "<account-id>"
+      }'
+    ```
+  </Step>
+  <Step title="Track the swap">
+    Listen for `operation.created`, `operation.completed`, and `operation.failed` [webhook events](/webhooks/events).
+  </Step>
+</Steps>
+
+<Warning>
+  Swaps are forward-only. Once executed, they cannot be reversed. Always verify the quoted rate before submitting.
+</Warning>
+
+## What happens next
+
+- [Make a withdrawal](/journeys/withdrawal) — send the converted funds to an external destination.
+- [Webhooks](/webhooks/overview) — monitor swap events in real time.

@@ -3,4 +3,49 @@ title: "Open a crypto account"
 description: "Step-by-step guide to opening a crypto asset account for an account owner."
 ---
 
-{/* TODO: Write journey — end-to-end flow from create-account to active account with crypto wallet */}
+import SandboxNote from '/snippets/sandbox-note.mdx';
+
+<SandboxNote />
+
+## Overview
+
+This guide walks you through creating a crypto asset account for an account owner. Once active, the account provides a wallet address for receiving crypto deposits.
+
+## Prerequisites
+
+- Valid [authentication credentials](/guides/authentication).
+- Account owner details.
+
+## Steps
+
+<Steps>
+  <Step title="Create the account">
+    Submit a request specifying the crypto asset:
+
+    ```bash
+    curl --request POST \
+      --url {{sandboxUrl}}/api/v1/accounts \
+      --header 'Authorization: Bearer <token>' \
+
+      --header 'X-Idempotency-Key: <unique-key>' \
+      --header 'Content-Type: application/json' \
+      --data '{
+        "asset": "BTC",
+        "type": "CRYPTO"
+      }'
+    ```
+
+    The account is returned in `PENDING` status.
+  </Step>
+  <Step title="Wait for activation">
+    The account goes through compliance checks. Listen for the [`account.activated`](/webhooks/events) webhook event or poll the account endpoint until the status changes to `ACTIVE`.
+  </Step>
+  <Step title="Get the wallet address">
+    Once active, retrieve the account details to obtain the wallet address for receiving crypto deposits.
+  </Step>
+</Steps>
+
+## What happens next
+
+- [Make a deposit](/journeys/deposit) — receive crypto into the wallet.
+- [Execute a swap](/journeys/swap) — convert crypto to BRL or other currencies.

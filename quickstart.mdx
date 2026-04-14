@@ -3,4 +3,51 @@ title: "Quickstart"
 description: "Make your first API request to Trace FX in under five minutes."
 ---
 
-{/* TODO: Write quickstart — get credentials, hit sandbox, see a response */}
+import SandboxNote from '/snippets/sandbox-note.mdx';
+
+<SandboxNote />
+
+## Prerequisites
+
+- A **client ID** and **client secret** provided during onboarding.
+- [curl](https://curl.se/) or any HTTP client.
+
+## Steps
+
+<Steps>
+  <Step title="Get an access token">
+    Follow the [Authentication](/guides/authentication) guide to exchange your client credentials for a JWT. Copy the `access_token` from the response.
+  </Step>
+  <Step title="Make your first request">
+    List accounts in the sandbox:
+
+    ```bash
+    curl --request GET \
+      --url {{sandboxUrl}}/api/v1/accounts \
+      --header 'Authorization: Bearer YOUR_ACCESS_TOKEN'
+    ```
+  </Step>
+  <Step title="Check the response">
+    You should see a paginated response:
+
+    ```json
+    {
+      "data": [],
+      "meta": {
+        "previousCursor": null,
+        "nextCursor": null,
+        "total": 0,
+        "totalMatches": 0
+      }
+    }
+    ```
+
+    An empty `data` array is expected — you haven't created any accounts yet. You're connected and authenticated.
+  </Step>
+</Steps>
+
+## What's next
+
+- [Open a BRL account](/journeys/open-brl-account) — create your first account
+- [Authentication](/guides/authentication) — learn about token management
+- [Environments](/guides/environments) — understand sandbox vs production

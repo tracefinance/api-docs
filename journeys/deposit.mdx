@@ -3,4 +3,56 @@ title: "Make a deposit"
 description: "How to create a deposit and track it through to completion."
 ---
 
-{/* TODO: Write journey — intent-first and money-first deposit flows, webhook events, status transitions */}
+import SandboxNote from '/snippets/sandbox-note.mdx';
+
+<SandboxNote />
+
+## Overview
+
+Deposits fund an account with BRL (via PIX or bank transfer) or crypto (via blockchain transfer). There are two flows depending on whether you initiate the deposit through the API first or the funds arrive first.
+
+## Prerequisites
+
+- An [active account](/journeys/open-brl-account) to deposit into.
+- Valid [authentication credentials](/guides/authentication).
+
+## Steps
+
+### Intent-first flow
+
+Use this when you create the deposit intent before the funds arrive.
+
+<Steps>
+  <Step title="Create a deposit intent">
+    ```bash
+    curl --request POST \
+      --url {{sandboxUrl}}/api/v1/operations \
+      --header 'Authorization: Bearer <token>' \
+
+      --header 'X-Idempotency-Key: <unique-key>' \
+      --header 'Content-Type: application/json' \
+      --data '{
+        "type": "DEPOSIT",
+        "accountId": "<account-id>",
+        "amount": {
+          "value": 500000,
+          "asset": "BRL"
+        }
+      }'
+    ```
+
+    The operation is created in `PENDING` status.
+  </Step>
+  <Step title="Track the deposit">
+    Listen for `operation.created`, `operation.completed`, and `operation.failed` [webhook events](/webhooks/events) as the deposit progresses.
+  </Step>
+</Steps>
+
+### Money-first flow
+
+When funds arrive at the account before an explicit deposit intent is created, the platform automatically creates the operation and notifies you via [webhook events](/webhooks/events).
+
+## What happens next
+
+- [Make a withdrawal](/journeys/withdrawal) — move funds out of the account.
+- [Execute a swap](/journeys/swap) — convert between currencies.
