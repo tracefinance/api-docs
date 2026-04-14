@@ -3,4 +3,80 @@ title: "Pagination"
 description: "Navigate large result sets with cursor-based pagination."
 ---
 
-{/* TODO: Write pagination guide — cursor-based, meta object (previousCursor, nextCursor, total, totalMatches) */}
+## Overview
+
+List endpoints return paginated responses using cursor-based pagination. This approach provides stable results even when data changes between requests.
+
+## How it works
+
+### Query parameters
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `limit` | integer | `10` | Number of items per page |
+| `cursor` | string | — | Cursor returned from a previous response |
+
+### Response structure
+
+Every list response includes a `meta` object alongside the `data` array:
+
+```json
+{
+  "data": [
+    { "id": "acc_001", "type": "CHECKING" },
+    { "id": "acc_002", "type": "SAVING" }
+  ],
+  "meta": {
+    "previousCursor": null,
+    "nextCursor": "eyJpZCI6ImFjY18wMDIifQ",
+    "total": 45,
+    "totalMatches": 45
+  }
+}
+```
+
+| Field | Description |
+|---|---|
+| `previousCursor` | Cursor to fetch the previous page. `null` on the first page. |
+| `nextCursor` | Cursor to fetch the next page. `null` on the last page. |
+| `total` | Total number of items in the collection. |
+| `totalMatches` | Total items matching the current filters. |
+
+## Examples
+
+**First page:**
+
+```bash
+curl --request GET \
+  --url '{{sandboxUrl}}/api/v1/accounts?limit=10' \
+  --header 'Authorization: Bearer <token>'
+```
+
+**Next page** — pass the `nextCursor` value as `cursor`:
+
+```bash
+curl --request GET \
+  --url '{{sandboxUrl}}/api/v1/accounts?limit=10&cursor=eyJpZCI6ImFjY18wMDIifQ' \
+  --header 'Authorization: Bearer <token>'
+```
+
+**Iterating through all pages:**
+
+```python
+cursor = None
+
+while True:
+    params = {"limit": 10}
+    if cursor:
+        params["cursor"] = cursor
+
+    response = client.get("/api/v1/accounts", params=params)
+    data = response.json()
+
+    for item in data["data"]:
+        process(item)
+
+    cursor = data["meta"]["nextCursor"]
+    if cursor is None:
+        break
+```

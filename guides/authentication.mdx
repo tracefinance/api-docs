@@ -4,4 +4,69 @@ description: "Obtain and use Auth0 JWT tokens to authenticate requests to the Tr
 sidebarTitle: "Authentication"
 ---
 
-{/* TODO: Write auth guide — Auth0 flow, obtaining tokens, X-Customer-Id claim, token rotation */}
+## Overview
+
+The Trace FX API uses [Auth0](https://auth0.com/) for authentication and authorization. Every request must include a valid JSON Web Token (JWT) in the `Authorization` header.
+
+During onboarding you receive a **client ID** and **client secret**. Use these to obtain an access token through the OAuth 2.0 client credentials flow.
+
+## Details
+
+### Obtaining a token
+
+Request an access token from the Auth0 token endpoint:
+
+```bash
+curl --request POST \
+  --url {{authUrl}}/oauth/token \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "client_id": "YOUR_CLIENT_ID",
+    "client_secret": "YOUR_CLIENT_SECRET",
+    "audience": "{{productionUrl}}",
+    "grant_type": "client_credentials"
+  }'
+```
+
+A successful response includes the token and its lifetime:
+
+```json
+{
+  "access_token": "eyJhbGciOiJSUzI1NiIs...",
+  "token_type": "Bearer",
+  "expires_in": 86400
+}
+```
+
+<Info>
+  In sandbox, set the `audience` to `{{sandboxUrl}}`.
+</Info>
+
+### Using the token
+
+Include the token in the `Authorization` header of every request:
+
+```bash
+curl --request GET \
+  --url {{sandboxUrl}}/api/v1/accounts \
+  --header 'Authorization: Bearer eyJhbGciOiJSUzI1NiIs...'
+```
+
+The token contains your customer identity — no separate customer ID header is needed.
+
+### Token lifecycle
+
+Tokens are valid for **24 hours** (86,400 seconds). Follow these best practices:
+
+1. **Store securely** — keep the token in memory after obtaining it.
+2. **Check before use** — inspect the `exp` claim in the JWT payload to confirm it has not expired.
+3. **Rotate proactively** — request a new token before the current one expires rather than waiting for a `401` response.
+
+<Warning>
+  Do not request a new token for every API call. Reuse tokens until they expire.
+</Warning>
+
+## Related
+
+- [Environments](/guides/environments) — sandbox and production base URLs
+- [Quickstart](/quickstart) — make your first API call

@@ -3,4 +3,41 @@ title: "Environments"
 description: "Sandbox and production base URLs, and what differs between them."
 ---
 
-{/* TODO: Write environments guide — sandbox vs production URLs, what resets, rate limits */}
+## Overview
+
+Trace FX provides two environments. Use sandbox for development and testing, and production for live integrations.
+
+| Environment | Base URL |
+|---|---|
+| Sandbox | `{{sandboxUrl}}` |
+| Production | `{{productionUrl}}` |
+
+## Details
+
+### Sandbox
+
+The sandbox is an isolated environment that replicates production behavior with test data. Use it to build and validate your integration before going live.
+
+- No real money is moved.
+- Test credentials are provided during onboarding.
+- Data may be reset periodically.
+
+### Production
+
+The production environment processes real transactions and serves live users. Access is granted after your integration has been validated in sandbox.
+
+- All operations affect real accounts and funds.
+- Subject to full compliance and security requirements.
+
+### Rate limits
+
+API requests are subject to rate limits in both environments. See [Errors](/guides/principles/errors) for status codes and retry guidance.
+
+### Availability
+
+The platform maintains **99.8% uptime** with the exception of scheduled maintenance or unforeseeable events. Scheduled maintenance is communicated at least **21 business days** in advance through official channels.
+
+## Related
+
+- [Authentication](/guides/authentication) — how to obtain tokens for each environment
+- [Quickstart](/quickstart) — make your first sandbox API call

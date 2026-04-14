@@ -3,4 +3,72 @@ title: "Idempotency"
 description: "Use the X-Idempotency-Key header to safely retry requests."
 ---
 
-{/* TODO: Write idempotency guide — X-Idempotency-Key header, when required, conflict behavior (409) */}
+## Overview
+
+Idempotency ensures that performing the same operation multiple times produces the same result as performing it once. This protects against duplicate operations when requests are retried due to timeouts or network failures.
+
+## How it works
+
+### The X-Idempotency-Key header
+
+Mutating endpoints (POST, PUT, PATCH) require the `X-Idempotency-Key` header. This client-generated key lets the API detect and deduplicate repeated requests.
+
+```bash
+curl --request POST \
+  --url {{sandboxUrl}}/api/v1/operations \
+  --header 'Authorization: Bearer <token>' \
+  --header 'X-Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000' \
+  --header 'Content-Type: application/json' \
+  --data '{ ... }'
+```
+
+### When it is required
+
+The `X-Idempotency-Key` header is required on any request that creates or modifies a resource. GET and DELETE requests do not require it.
+
+### Conflict behavior
+
+If a request arrives with an idempotency key that was already used for a **different** request body, the API returns HTTP `409 Conflict`:
+
+```json
+{
+  "code": "IDEMPOTENT_ID_CONFLICT",
+  "message": "A request with this idempotency key has already been processed.",
+  "details": {}
+}
+```
+
+If the key matches a previous request with the **same** body, the API returns the original response without reprocessing.
+
+## Examples
+
+Generate a UUID v4 for each unique operation:
+
+<Tabs>
+  <Tab title="Python">
+    ```python
+    import uuid
+
+    idempotency_key = str(uuid.uuid4())
+    ```
+  </Tab>
+  <Tab title="JavaScript">
+    ```javascript
+    const idempotencyKey = crypto.randomUUID();
+    ```
+  </Tab>
+</Tabs>
+
+Retrying safely after a timeout:
+
+```bash
+# First attempt — times out
+curl ... --header 'X-Idempotency-Key: 550e8400-...'
+
+# Retry with the same key — safe, returns original result
+curl ... --header 'X-Idempotency-Key: 550e8400-...'
+```
+
+<Warning>
+  Never reuse an idempotency key for a different operation. Each unique operation must have its own key.
+</Warning>

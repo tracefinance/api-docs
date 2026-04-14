@@ -3,4 +3,84 @@ title: "Money and currencies"
 description: "How monetary amounts are represented in the API."
 ---
 
-{/* TODO: Write money guide — value in minor units (integer), asset as ISO 4217 currency code, supported currencies */}
+## Overview
+
+All monetary amounts in the Trace FX API are represented as integers in **minor units** (e.g. cents) paired with an ISO 4217 currency code. This avoids floating-point precision issues.
+
+## How it works
+
+### Amount object
+
+Every amount in the API uses the same structure:
+
+```json
+{
+  "value": 500000,
+  "asset": "BRL"
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `value` | integer | Amount in the smallest currency unit (e.g. centavos for BRL, cents for USD) |
+| `asset` | string | ISO 4217 currency code |
+
+### Converting to display values
+
+Divide the `value` by the currency's minor unit factor (typically 100) to get the display amount:
+
+| API value | Asset | Display amount |
+|---|---|---|
+| `500000` | `BRL` | R$ 5.000,00 |
+| `1050` | `USD` | $10.50 |
+| `100000000` | `BTC` | 1.00000000 BTC |
+
+<Warning>
+  Always use integer arithmetic when working with amounts. Never convert to floating-point for calculations.
+</Warning>
+
+### Date and time format
+
+All dates and timestamps use **UTC** in ISO 8601 format:
+
+```
+yyyy-MM-ddTHH:mm:ss.SSSZ
+```
+
+Example: `2025-01-15T14:30:00.000Z`
+
+| Component | Description | Example |
+|---|---|---|
+| `yyyy` | Four-digit year | `2025` |
+| `MM` | Two-digit month (01–12) | `01` |
+| `dd` | Two-digit day (01–31) | `15` |
+| `T` | Date/time separator | `T` |
+| `HH` | Hours in 24-hour format (00–23) | `14` |
+| `mm` | Minutes (00–59) | `30` |
+| `ss` | Seconds (00–59) | `00` |
+| `.SSS` | Milliseconds (optional) | `.000` |
+| `Z` | UTC timezone indicator | `Z` |
+
+## Examples
+
+A deposit of R$ 1.250,00:
+
+```json
+{
+  "amount": {
+    "value": 125000,
+    "asset": "BRL"
+  }
+}
+```
+
+A withdrawal of $500.00:
+
+```json
+{
+  "amount": {
+    "value": 50000,
+    "asset": "USD"
+  }
+}
+```

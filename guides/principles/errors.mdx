@@ -3,4 +3,89 @@ title: "Errors"
 description: "How errors are structured and how to handle them."
 ---
 
-{/* TODO: Write errors guide — ErrorResponse shape (code, message, details), HTTP status codes, retry guidance */}
+## Overview
+
+The Trace FX API uses standard HTTP status codes and returns structured error responses. Every response includes an `X-Request-Id` header you can reference when contacting support.
+
+## How it works
+
+### Error response structure
+
+All errors follow the same shape:
+
+```json
+{
+  "code": "INVALID_DATA",
+  "message": "The field 'amount.value' must be a positive integer.",
+  "details": {}
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `code` | string | Machine-readable error code for programmatic handling |
+| `message` | string | Human-readable description of what went wrong |
+| `details` | object | Additional context (may be empty) |
+
+### HTTP status codes
+
+| Code | Meaning | When it happens |
+|---|---|---|
+| `200` | OK | Request succeeded |
+| `201` | Created | Resource was created |
+| `204` | No content | Request succeeded with no response body |
+| `400` | Bad request | Invalid or malformed request data |
+| `401` | Unauthorized | Missing or invalid authentication token |
+| `404` | Not found | Resource does not exist |
+| `408` | Request timeout | Request took too long to process |
+| `409` | Conflict | Idempotency key conflict or state conflict |
+| `422` | Unprocessable entity | Valid syntax but business rule violation |
+| `429` | Too many requests | Rate limit exceeded |
+| `500` | Internal server error | Unexpected server failure |
+
+### Common error codes
+
+| Code | HTTP status | Description |
+|---|---|---|
+| `INVALID_DATA` | 400 | Request body failed validation |
+| `RESOURCE_NOT_FOUND` | 404 | The requested resource does not exist |
+| `IDEMPOTENT_ID_CONFLICT` | 409 | Idempotency key was already used |
+| `INVALID_STATUS_CHANGE` | 422 | The resource cannot transition to the requested state |
+| `MFA_NOT_ENABLED` | 422 | Multi-factor authentication is required but not configured |
+
+### Retry guidance
+
+| Status code | Should retry? | Strategy |
+|---|---|---|
+| `400`, `401`, `404`, `422` | No | Fix the request before retrying |
+| `408`, `429` | Yes | Back off and retry after the indicated period |
+| `409` | Depends | Check if the original request succeeded |
+| `500` | Yes | Retry with exponential backoff |
+
+<Tip>
+  Include the `X-Request-Id` from the response when opening a support ticket. This helps the team trace your request through the system.
+</Tip>
+
+## Examples
+
+A validation error:
+
+```json
+{
+  "code": "INVALID_DATA",
+  "message": "The field 'amount.value' must be a positive integer.",
+  "details": {
+    "field": "amount.value"
+  }
+}
+```
+
+A resource not found:
+
+```json
+{
+  "code": "RESOURCE_NOT_FOUND",
+  "message": "Account with id 'abc-123' was not found.",
+  "details": {}
+}
+```
