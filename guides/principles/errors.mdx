@@ -22,7 +22,7 @@ All errors follow the same shape:
 ```
 
 | Field | Type | Description |
-|---|---|---|
+| --- | --- | --- |
 | `code` | string | Machine-readable error code for programmatic handling |
 | `message` | string | Human-readable description of what went wrong |
 | `details` | object | Additional context (may be empty) |
@@ -30,7 +30,7 @@ All errors follow the same shape:
 ### HTTP status codes
 
 | Code | Meaning | When it happens |
-|---|---|---|
+| --- | --- | --- |
 | `200` | OK | Request succeeded |
 | `201` | Created | Resource was created |
 | `204` | No content | Request succeeded with no response body |
@@ -46,7 +46,7 @@ All errors follow the same shape:
 ### Common error codes
 
 | Code | HTTP status | Description |
-|---|---|---|
+| --- | --- | --- |
 | `INVALID_DATA` | 400 | Request body failed validation |
 | `RESOURCE_NOT_FOUND` | 404 | The requested resource does not exist |
 | `IDEMPOTENT_ID_CONFLICT` | 409 | Idempotency key was already used |
@@ -56,7 +56,7 @@ All errors follow the same shape:
 ### Retry guidance
 
 | Status code | Should retry? | Strategy |
-|---|---|---|
+| --- | --- | --- |
 | `400`, `401`, `404`, `422` | No | Fix the request before retrying |
 | `408`, `429` | Yes | Back off and retry after the indicated period |
 | `409` | Depends | Check if the original request succeeded |

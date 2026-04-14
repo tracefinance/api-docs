@@ -21,7 +21,7 @@ Every amount in the API uses the same structure:
 ```
 
 | Field | Type | Description |
-|---|---|---|
+| --- | --- | --- |
 | `value` | integer | Amount in the smallest currency unit (e.g. centavos for BRL, cents for USD) |
 | `asset` | string | ISO 4217 currency code |
 
@@ -30,7 +30,7 @@ Every amount in the API uses the same structure:
 Divide the `value` by the currency's minor unit factor (typically 100) to get the display amount:
 
 | API value | Asset | Display amount |
-|---|---|---|
+| --- | --- | --- |
 | `500000` | `BRL` | R$ 5.000,00 |
 | `1050` | `USD` | $10.50 |
 | `100000000` | `BTC` | 1.00000000 BTC |
@@ -50,7 +50,7 @@ yyyy-MM-ddTHH:mm:ss.SSSZ
 Example: `2025-01-15T14:30:00.000Z`
 
 | Component | Description | Example |
-|---|---|---|
+| --- | --- | --- |
 | `yyyy` | Four-digit year | `2025` |
 | `MM` | Two-digit month (01–12) | `01` |
 | `dd` | Two-digit day (01–31) | `15` |

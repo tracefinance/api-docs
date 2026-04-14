@@ -12,7 +12,7 @@ List endpoints return paginated responses using cursor-based pagination. This ap
 ### Query parameters
 
 | Parameter | Type | Default | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `limit` | integer | `10` | Number of items per page |
 | `cursor` | string | — | Cursor returned from a previous response |
 
@@ -36,7 +36,7 @@ Every list response includes a `meta` object alongside the `data` array:
 ```
 
 | Field | Description |
-|---|---|
+| --- | --- |
 | `previousCursor` | Cursor to fetch the previous page. `null` on the first page. |
 | `nextCursor` | Cursor to fetch the next page. `null` on the last page. |
 | `total` | Total number of items in the collection. |

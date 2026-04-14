@@ -20,7 +20,7 @@ All events share this structure:
 ```
 
 | Field | Description |
-|---|---|
+| --- | --- |
 | `messageId` | Unique event identifier. Use for deduplication and signature verification. |
 | `type` | Event type (see tables below). |
 | `timestamp` | When the event occurred (ISO 8601 UTC). |
@@ -31,7 +31,7 @@ All events share this structure:
 Triggered when account lifecycle changes occur.
 
 | Event type | Description |
-|---|---|
+| --- | --- |
 | `account.created` | A new account was created. |
 | `account.activated` | An account is now active and ready for use. |
 | `account.deactivated` | An account was deactivated. |
@@ -41,7 +41,7 @@ Triggered when account lifecycle changes occur.
 Triggered when payment operations change state.
 
 | Event type | Description |
-|---|---|
+| --- | --- |
 | `operation.created` | A new operation (deposit, withdrawal, or swap) was created. |
 | `operation.completed` | An operation finished successfully. |
 | `operation.failed` | An operation failed. Check `data` for the failure reason. |
@@ -51,7 +51,7 @@ Triggered when payment operations change state.
 Triggered when beneficiary records change.
 
 | Event type | Description |
-|---|---|
+| --- | --- |
 | `beneficiary.created` | A new beneficiary was registered. |
 | `beneficiary.approved` | A beneficiary passed compliance review. |
 | `beneficiary.rejected` | A beneficiary was rejected during compliance review. |
