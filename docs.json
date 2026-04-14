@@ -73,6 +73,72 @@
             ]
           }
         ]
+      },
+      {
+        "tab": "API Reference",
+        "icon": "code",
+        "groups": [
+          {
+            "group": "Accounts",
+            "icon": "building-columns",
+            "pages": [
+              "api-reference/fx-account/accounts/create-account",
+              "api-reference/fx-account/accounts/list-accounts",
+              "api-reference/fx-account/accounts/get-account",
+              "api-reference/fx-account/accounts/submit-account-for-review",
+              "api-reference/fx-account/documents/upload-account-document",
+              {
+                "group": "Funding instructions",
+                "icon": "money-bill-transfer",
+                "pages": [
+                  "api-reference/fx-account/funding-instructions/list-funding-instructions"
+                ]
+              },
+              {
+                "group": "UBOs",
+                "icon": "users",
+                "pages": [
+                  "api-reference/fx-account/beneficial-owners/add-ubo",
+                  "api-reference/fx-account/beneficial-owners/list-ubos",
+                  "api-reference/fx-account/beneficial-owners/get-ubo",
+                  "api-reference/fx-account/beneficial-owners/update-ubo",
+                  "api-reference/fx-account/beneficial-owners/remove-ubo",
+                  "api-reference/fx-account/documents/upload-ubo-document"
+                ]
+              }
+            ]
+          },
+          {
+            "group": "Operations",
+            "icon": "arrows-rotate",
+            "pages": [
+              "api-reference/fx-payment/operations/create-deposit",
+              "api-reference/fx-payment/operations/create-withdrawal",
+              "api-reference/fx-payment/operations/create-swap",
+              "api-reference/fx-payment/operations/get-operation",
+              "api-reference/fx-payment/operations/list-operations"
+            ]
+          },
+          {
+            "group": "Beneficiaries",
+            "icon": "address-book",
+            "pages": [
+              "api-reference/fx-payment/beneficiaries/create-beneficiary",
+              "api-reference/fx-payment/beneficiaries/list-beneficiaries",
+              "api-reference/fx-payment/beneficiaries/get-beneficiary",
+              "api-reference/fx-payment/beneficiaries/update-beneficiary",
+              "api-reference/fx-payment/beneficiaries/delete-beneficiary",
+              {
+                "group": "Payment instructions",
+                "icon": "credit-card",
+                "pages": [
+                  "api-reference/fx-payment/beneficiaries/add-payment-instruction",
+                  "api-reference/fx-payment/beneficiaries/remove-payment-instruction"
+                ]
+              }
+            ]
+          }
+        ]
       }
     ],
     "global": {
