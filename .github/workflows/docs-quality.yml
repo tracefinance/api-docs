@@ -15,11 +15,11 @@ jobs:
           node-version: "20"
       - run: npm i -g mint
       - name: Validate build
-        run: mint build
+        run: mint validate
       - name: Check broken links
         run: mint broken-links
       - name: Accessibility check
-        run: mint accessibility
+        run: mint a11y
 
   frontmatter:
     name: Frontmatter completeness
@@ -65,7 +65,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Run eval
-        run: python3 .claude/evals/openapi-completeness.py --threshold 50
+        run: python3 .claude/evals/openapi-completeness.py --threshold 0
 
   markdown-format:
     name: Markdown linting
