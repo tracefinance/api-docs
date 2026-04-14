@@ -17,22 +17,26 @@ Filters follow the format `field[operator]=value`:
 ?filters=field[operator]=value
 ```
 
-Combine multiple filters with a semicolon (`;`). Group conditions with logical operators `and(...)` and `or(...)`, separating conditions inside with commas.
+Combine multiple filters with a semicolon (`;`) — groups separated by `;` are implicitly AND-ed. Group conditions with logical operators `and(...)` and `or(...)`, separating conditions inside with commas.
+
+Use the string `null` to filter for null values: `field[eq]=null`.
 
 ### Operators
 
 | Operator | Description | Example |
 | --- | --- | --- |
 | `eq` | Equals | `id[eq]=abc-123` |
+| `ne` | Not equals | `status[ne]=CLOSED` |
 | `gt` | Greater than | `amount.value[gt]=1000` |
 | `gte` | Greater than or equal | `createdAt[gte]=2025-01-01T00:00:00Z` |
 | `lt` | Less than | `amount.value[lt]=50000` |
 | `lte` | Less than or equal | `createdAt[lte]=2025-12-31T23:59:59Z` |
 | `in` | Matches any value in list (pipe-separated) | `type[in]=CHECKING\|SAVING` |
-| `nin` | Excludes values in list | `status[nin]=CLOSED\|SUSPENDED` |
-| `like` | Pattern matching | `name[like]=Trace%` |
-| `last` | Last element of array equals (strings) | `states.status[last]=ACTIVE` |
-| `last_ne` | Last element of array not equals (strings) | `states.status[last_ne]=CLOSED` |
+| `nin` | Excludes values in list (pipe-separated) | `status[nin]=CLOSED\|SUSPENDED` |
+| `like` | Case-insensitive partial match | `name[like]=trace` |
+| `text` | Full-text search (case-insensitive) | `description[text]=payment` |
+| `last` | Last element of array equals | `states.status[last]=ACTIVE` |
+| `last_ne` | Last element of array not equals | `states.status[last_ne]=CLOSED` |
 
 ### Logical operators
 
@@ -78,6 +82,6 @@ Full request example:
 
 ```bash
 curl --request GET \
-  --url '{{sandboxUrl}}/api/v1/accounts?limit=10&filters=states.status[last]=ACTIVE' \
+  --url '{{sandboxUrl}}/api/accounts?limit=10&filters=states.status[last]=ACTIVE' \
   --header 'Authorization: Bearer <token>'
 ```

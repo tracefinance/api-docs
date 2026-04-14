@@ -58,6 +58,7 @@
               "guides/principles/pagination",
               "guides/principles/filtering",
               "guides/principles/money",
+              "guides/principles/datetime",
               "guides/principles/errors"
             ]
           },
@@ -69,13 +70,6 @@
               "journeys/deposit",
               "journeys/withdrawal",
               "journeys/swap"
-            ]
-          },
-          {
-            "group": "Webhooks",
-            "pages": [
-              "webhooks/overview",
-              "webhooks/events"
             ]
           }
         ]

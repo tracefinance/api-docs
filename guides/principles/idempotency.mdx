@@ -15,7 +15,7 @@ Mutating endpoints (POST, PUT, PATCH) require the `X-Idempotency-Key` header. Th
 
 ```bash
 curl --request POST \
-  --url {{sandboxUrl}}/api/v1/operations \
+  --url {{sandboxUrl}}/api/operations \
   --header 'Authorization: Bearer <token>' \
   --header 'X-Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000' \
   --header 'Content-Type: application/json' \
@@ -28,7 +28,7 @@ The `X-Idempotency-Key` header is required on any request that creates or modifi
 
 ### Conflict behavior
 
-If a request arrives with an idempotency key that was already used for a **different** request body, the API returns HTTP `409 Conflict`:
+If a request arrives with an idempotency key that was already used, the API returns HTTP `409 Conflict`:
 
 ```json
 {
@@ -37,8 +37,6 @@ If a request arrives with an idempotency key that was already used for a **diffe
   "details": {}
 }
 ```
-
-If the key matches a previous request with the **same** body, the API returns the original response without reprocessing.
 
 ## Examples
 

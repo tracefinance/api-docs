@@ -1,0 +1,46 @@
+---
+title: "Date and time"
+description: "How dates and timestamps are formatted in the API."
+---
+
+## Overview
+
+All dates and timestamps in the Trace FX API use **UTC** in ISO 8601 format. No other timezones are accepted or returned.
+
+## How it works
+
+### Format
+
+```
+yyyy-MM-ddTHH:mm:ss.SSSZ
+```
+
+Example: `2025-01-15T14:30:00.000Z`
+
+| Component | Description | Example |
+| --- | --- | --- |
+| `yyyy` | Four-digit year | `2025` |
+| `MM` | Two-digit month (01–12) | `01` |
+| `dd` | Two-digit day (01–31) | `15` |
+| `T` | Date/time separator | `T` |
+| `HH` | Hours in 24-hour format (00–23) | `14` |
+| `mm` | Minutes (00–59) | `30` |
+| `ss` | Seconds (00–59) | `00` |
+| `.SSS` | Milliseconds (optional) | `.000` |
+| `Z` | UTC timezone indicator | `Z` |
+
+## Examples
+
+A resource creation timestamp:
+
+```json
+{
+  "createdAt": "2025-01-15T14:30:00.000Z"
+}
+```
+
+Filtering by date range:
+
+```bash
+?filters=and(createdAt[gte]=2025-01-01T00:00:00.000Z,createdAt[lte]=2025-01-31T23:59:59.999Z)
+```

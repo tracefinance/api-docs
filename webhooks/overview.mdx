@@ -16,7 +16,7 @@ Your webhook endpoint must:
 
 - Accept **POST** requests with a JSON body.
 - Be reachable over **HTTPS**.
-- Return a **2xx** status code within **10 seconds** to acknowledge receipt.
+- Return a **2xx** status code within **5 seconds** to acknowledge receipt.
 
 If your endpoint returns a non-2xx status or times out, Trace treats the delivery as failed and schedules a retry.
 
@@ -96,17 +96,9 @@ Every webhook request includes an `X-Message-Signature` header containing an HMA
 
 ## Retry policy
 
-If delivery fails, Trace retries with exponential backoff:
+If delivery fails, Trace retries at a **constant interval of 5 minutes** for up to **24 hours** (288 attempts). After all retries are exhausted, the event is marked as failed permanently.
 
-| Attempt | Delay |
-| --- | --- |
-| 1st retry | 1 minute |
-| 2nd retry | 5 minutes |
-| 3rd retry | 30 minutes |
-| 4th retry | 2 hours |
-| 5th retry | 24 hours |
-
-After all retries are exhausted, the event is marked as failed. Events are delivered **at least once** — your endpoint should be idempotent to handle potential duplicates.
+Events are delivered **at least once** — your endpoint should be idempotent to handle potential duplicates.
 
 <Tip>
   Use the `messageId` field to deduplicate events on your side.

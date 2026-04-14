@@ -26,7 +26,7 @@ Use this when you create the deposit intent before the funds arrive.
   <Step title="Create a deposit intent">
     ```bash
     curl --request POST \
-      --url {{sandboxUrl}}/api/v1/operations \
+      --url {{sandboxUrl}}/api/operations \
       --header 'Authorization: Bearer <token>' \
 
       --header 'X-Idempotency-Key: <unique-key>' \

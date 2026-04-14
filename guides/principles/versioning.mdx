@@ -15,7 +15,7 @@ Include the `X-Trace-Version` header in your requests:
 
 ```bash
 curl --request GET \
-  --url {{sandboxUrl}}/api/v1/accounts \
+  --url {{sandboxUrl}}/api/accounts \
   --header 'Authorization: Bearer <token>' \
   --header 'X-Trace-Version: 2'
 ```
@@ -65,6 +65,6 @@ No version header (uses default):
 
 ```bash
 curl --request GET \
-  --url {{sandboxUrl}}/api/v1/accounts \
+  --url {{sandboxUrl}}/api/accounts \
   --header 'Authorization: Bearer <token>'
 ```
