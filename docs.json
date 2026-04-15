@@ -10,8 +10,7 @@
   "favicon": "/favicon.svg",
   "logo": {
     "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg",
-    "href": "https://tracefinance.io"
+    "dark": "/logo/dark.svg"
   },
   "appearance": {
     "default": "dark"
@@ -65,8 +64,7 @@
           {
             "group": "Journeys",
             "pages": [
-              "journeys/open-brl-account",
-              "journeys/open-crypto-account",
+              "journeys/open-multi-currency-account",
               "journeys/deposit",
               "journeys/withdrawal",
               "journeys/swap"
@@ -146,16 +144,7 @@
           }
         ]
       }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "API Status",
-          "href": "https://status.tracefinance.io",
-          "icon": "signal"
-        }
-      ]
-    }
+    ]
   },
   "navbar": {
     "links": [

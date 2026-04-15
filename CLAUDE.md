@@ -107,11 +107,11 @@ Page types are inferred from file paths:
 `snippets/` contains shared MDX blocks. Import them in any page:
 
 ```mdx
-import SandboxNote from '/snippets/sandbox-note.mdx';
-<SandboxNote />
+import AuthHeader from '/snippets/auth-header.mdx';
+<AuthHeader />
 ```
 
-Available: `auth-header`, `sandbox-note`, `idempotency-note`, `pagination-response`, `error-response`, `money-format`, `version-header`.
+Available: `auth-header`, `idempotency-note`, `pagination-response`, `error-response`, `money-format`, `version-header`.
 
 ### CI (GitHub Actions)
 
