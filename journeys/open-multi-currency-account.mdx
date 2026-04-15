@@ -1,0 +1,67 @@
+---
+title: "Open a multi-currency account"
+description: "Step-by-step guide to opening an account that holds one or more currencies for an account owner."
+---
+
+## Overview
+
+An account in Trace FX is multi-currency: every account includes crypto support by default, and you declare which fiat assets (like BRL) to enable when you create it. Each fiat asset and the crypto wallet run their own onboarding pipelines, and the account becomes `ACTIVE` as soon as the first one finishes — typically the crypto wallet, since it has no manual steps.
+
+## Prerequisites
+
+- Valid [authentication credentials](/guides/authentication).
+- Account owner details (company legal name, tax ID, industry, and address).
+
+## Steps
+
+<Steps>
+  <Step title="Create the account">
+    Submit a request with the fiat assets to enable and the account owner's details. Crypto support is always included — you don't need to declare it.
+
+    ```bash
+    curl --request POST \
+      --url {{sandboxUrl}}/api/accounts \
+      --header 'Authorization: Bearer <token>' \
+      --header 'X-Idempotency-Key: <unique-key>' \
+      --header 'Content-Type: application/json' \
+      --data '{
+        "assets": [
+          { "code": "BRL", "isVirtual": false }
+        ],
+        "owner": {
+          "type": "COMPANY",
+          "legalName": "Acme Ltda",
+          "taxId": "12345678000101",
+          "industry": "INFORMATION_TECHNOLOGY",
+          "address": {
+            "addressLine1": "Rua das Flores, 100",
+            "addressLine2": "Suite 456",
+            "city": "São Paulo",
+            "state": "SP",
+            "country": "BR",
+            "postalCode": "01234-567"
+          }
+        }
+      }'
+    ```
+
+    The response returns the account in `REQUESTED` status along with the document types required for onboarding. Fiat onboarding requires document uploads; crypto has none.
+  </Step>
+  <Step title="Upload required documents">
+    For each document type returned in the creation response, upload the file using [`POST /api/accounts/{accountId}/documents`](/api-reference/fx-account/documents/upload-account-document).
+  </Step>
+  <Step title="Submit for review">
+    Once all required documents are uploaded, call [`POST /api/accounts/{accountId}/review`](/api-reference/fx-account/accounts/submit-account-for-review) to trigger identity analysis. The account transitions to `REVIEWING`.
+  </Step>
+  <Step title="Wait for activation">
+    After analysis is approved, each asset activates on its own pipeline. Listen for the `account.activated` webhook event or poll [`GET /api/accounts/{accountId}`](/api-reference/fx-account/accounts/get-account) — the account becomes `ACTIVE` as soon as the first asset finishes onboarding.
+  </Step>
+  <Step title="Retrieve funding instructions">
+    Once the account is active, call [`GET /api/accounts/{accountId}/fundingInstructions`](/api-reference/fx-account/funding-instructions/list-funding-instructions) to retrieve incoming transfer details per active asset: PIX key and bank account for BRL, wallet address for crypto.
+  </Step>
+</Steps>
+
+## What happens next
+
+- [Make a deposit](/journeys/deposit) — fund the account with BRL or crypto.
+- [Execute a swap](/journeys/swap) — convert between the account's assets.

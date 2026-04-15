@@ -903,11 +903,32 @@ paths:
               schema:
                 $ref: "#/components/schemas/AccountResponse"
         "400":
-          description: Invalid request body.
+          description: Invalid request.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                invalidTaxId:
+                  summary: Owner taxId length is not 11 (individual) or 14 (company)
+                  value:
+                    code: "INVALID_TAX_ID"
+                    message: "TaxId must be 11 or 14 characters"
+                    details:
+                      taxIdLength: 10
+                unsupportedAsset:
+                  summary: Requested asset code is not supported
+                  value:
+                    code: "UNSUPPORTED_ASSET"
+                    message: "Asset not supported by any provider: asset=ETH"
+                    details:
+                      asset: "ETH"
+                invalidData:
+                  summary: Request body failed validation
+                  value:
+                    code: "INVALID_DATA"
+                    message: "Request body is malformed or missing required fields"
+                    details: {}
         "401":
           description: Missing or invalid authentication token.
           content:
@@ -921,11 +942,19 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "422":
-          description: Validation error (e.g., individual customer with mismatched tax ID).
+          description: Business rule violation.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                ubosNotAllowedForIndividual:
+                  summary: Individual-owned account cannot have UBOs
+                  value:
+                    code: "UBOS_NOT_ALLOWED_FOR_INDIVIDUAL"
+                    message: "UBOs are not allowed for individual accounts"
+                    details:
+                      taxId: "12345678900"
     get:
       operationId: listAccounts
       tags:
@@ -986,6 +1015,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                invalidUuid:
+                  summary: accountId path parameter is not a valid UUID
+                  value:
+                    code: "INVALID_UUID"
+                    message: "accountId must be a valid UUID"
+                    details:
+                      field: "accountId"
         "401":
           description: Missing or invalid authentication token.
           content:
@@ -998,6 +1035,15 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                accountNotFound:
+                  summary: Account does not exist for the authenticated customer
+                  value:
+                    code: "RESOURCE_NOT_FOUND"
+                    message: "Account with id '5b7c1f2a-3d4e-4f8a-9b1c-2d3e4f5a6b7c' was not found"
+                    details:
+                      resource: "Account"
+                      id: "5b7c1f2a-3d4e-4f8a-9b1c-2d3e4f5a6b7c"
 
   /api/accounts/{accountId}/review:
     post:
@@ -1025,18 +1071,55 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                accountNotFound:
+                  summary: Account does not exist for the authenticated customer
+                  value:
+                    code: "RESOURCE_NOT_FOUND"
+                    message: "Account with id '5b7c1f2a-3d4e-4f8a-9b1c-2d3e4f5a6b7c' was not found"
+                    details:
+                      resource: "Account"
+                      id: "5b7c1f2a-3d4e-4f8a-9b1c-2d3e4f5a6b7c"
         "409":
-          description: Account has no provider accounts requiring analysis.
+          description: Account state conflict.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                noProviderAccountRequiresAnalysis:
+                  summary: Account has no provider accounts awaiting analysis
+                  value:
+                    code: "NO_PROVIDER_ACCOUNT_REQUIRES_ANALYSIS"
+                    message: "Account has no provider accounts requiring analysis"
+                    details:
+                      accountId: "5b7c1f2a-3d4e-4f8a-9b1c-2d3e4f5a6b7c"
         "422":
-          description: Account has missing documents or unfulfilled requirements.
+          description: Business rule violation.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                missingDocumentsForReview:
+                  summary: Required documents are missing or rejected
+                  value:
+                    code: "MISSING_DOCUMENTS_FOR_REVIEW"
+                    message: "Not all documents uploaded for review submission"
+                    details:
+                      accountId: "5b7c1f2a-3d4e-4f8a-9b1c-2d3e4f5a6b7c"
+                      missingDocumentTypes:
+                        - "COMPANY_ARTICLES_OF_INCORPORATION"
+                        - "COMPANY_PROOF_OF_ADDRESS"
+                missingUboVerification:
+                  summary: Company account has no verified UBOs
+                  value:
+                    code: "MISSING_DOCUMENTS_FOR_REVIEW"
+                    message: "Not all documents uploaded for review submission"
+                    details:
+                      accountId: "5b7c1f2a-3d4e-4f8a-9b1c-2d3e4f5a6b7c"
+                      missingDocumentTypes:
+                        - "UBO_VERIFICATION"
 
   # ── Funding instructions ─────────────────────────────────────────
   /api/accounts/{accountId}/fundingInstructions:
@@ -1080,6 +1163,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                invalidUuid:
+                  summary: accountId path parameter is not a valid UUID
+                  value:
+                    code: "INVALID_UUID"
+                    message: "accountId must be a valid UUID"
+                    details:
+                      field: "accountId"
         "401":
           description: Missing or invalid authentication token.
           content:
@@ -1092,6 +1183,15 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                accountNotFound:
+                  summary: Account does not exist for the authenticated customer
+                  value:
+                    code: "RESOURCE_NOT_FOUND"
+                    message: "Account with id '5b7c1f2a-3d4e-4f8a-9b1c-2d3e4f5a6b7c' was not found"
+                    details:
+                      resource: "Account"
+                      id: "5b7c1f2a-3d4e-4f8a-9b1c-2d3e4f5a6b7c"
 
   # ── Account documents ────────────────────────────────────────────
   /api/accounts/{accountId}/documents:
@@ -1131,11 +1231,33 @@ paths:
               schema:
                 $ref: "#/components/schemas/DocumentResponse"
         "400":
-          description: Invalid account ID format or missing multipart fields.
+          description: Invalid request or missing multipart fields.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                emptyFile:
+                  summary: Uploaded file is empty
+                  value:
+                    code: "EMPTY_FILE"
+                    message: "File must not be empty: fieldName=file"
+                    details:
+                      fieldName: "file"
+                missingMultipartField:
+                  summary: Required multipart field is missing
+                  value:
+                    code: "MISSING_MULTIPART_FIELD"
+                    message: "Missing required multipart field: fieldName=requirementId"
+                    details:
+                      fieldName: "requirementId"
+                invalidUuid:
+                  summary: accountId or requirementId is not a valid UUID
+                  value:
+                    code: "INVALID_UUID"
+                    message: "accountId must be a valid UUID"
+                    details:
+                      field: "accountId"
         "401":
           description: Missing or invalid authentication token.
           content:
@@ -1148,6 +1270,15 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                accountNotFound:
+                  summary: Account does not exist for the authenticated customer
+                  value:
+                    code: "RESOURCE_NOT_FOUND"
+                    message: "Account with id '5b7c1f2a-3d4e-4f8a-9b1c-2d3e4f5a6b7c' was not found"
+                    details:
+                      resource: "Account"
+                      id: "5b7c1f2a-3d4e-4f8a-9b1c-2d3e4f5a6b7c"
         "422":
           description: No matching requirement for the given requirement ID.
           content:
@@ -1194,11 +1325,25 @@ paths:
               schema:
                 $ref: "#/components/schemas/UBOResponse"
         "400":
-          description: Invalid request body.
+          description: Invalid request.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                invalidTaxId:
+                  summary: UBO taxId length is not 11 (individual) or 14 (company)
+                  value:
+                    code: "INVALID_TAX_ID"
+                    message: "TaxId must be 11 or 14 characters"
+                    details:
+                      taxIdLength: 10
+                invalidData:
+                  summary: Request body failed validation
+                  value:
+                    code: "INVALID_DATA"
+                    message: "Request body is malformed or missing required fields"
+                    details: {}
         "401":
           description: Missing or invalid authentication token.
           content:
@@ -1211,12 +1356,58 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-        "422":
-          description: Validation error.
+              examples:
+                accountNotFound:
+                  summary: Account does not exist for the authenticated customer
+                  value:
+                    code: "RESOURCE_NOT_FOUND"
+                    message: "Account with id '5b7c1f2a-3d4e-4f8a-9b1c-2d3e4f5a6b7c' was not found"
+                    details:
+                      resource: "Account"
+                      id: "5b7c1f2a-3d4e-4f8a-9b1c-2d3e4f5a6b7c"
+        "409":
+          description: UBO already exists.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                duplicateUbo:
+                  summary: A UBO with this taxId is already registered on the account
+                  value:
+                    code: "DUPLICATE_UBO"
+                    message: "A UBO with this tax ID already exists"
+                    details:
+                      taxId: "12345678900"
+        "422":
+          description: Business rule violation.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                ubosNotAllowedForIndividual:
+                  summary: Account has an individual owner (UBOs apply only to companies)
+                  value:
+                    code: "UBOS_NOT_ALLOWED_FOR_INDIVIDUAL"
+                    message: "UBOs are not allowed for individual accounts"
+                    details:
+                      taxId: "12345678900"
+                accountNotModifiable:
+                  summary: Account is not in a modifiable state (e.g., already under review)
+                  value:
+                    code: "ACCOUNT_NOT_MODIFIABLE"
+                    message: "Account is not in a modifiable state"
+                    details:
+                      accountId: "5b7c1f2a-3d4e-4f8a-9b1c-2d3e4f5a6b7c"
+                insufficientOwnership:
+                  summary: UBO ownership percentage is below the 25% threshold
+                  value:
+                    code: "INSUFFICIENT_OWNERSHIP"
+                    message: "Partner ownership percentage must be at least 25%"
+                    details:
+                      taxId: "12345678900"
+                      ownershipPercentage: 10.0
     get:
       operationId: listUbos
       tags:
@@ -1247,6 +1438,29 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                accountNotFound:
+                  summary: Account does not exist for the authenticated customer
+                  value:
+                    code: "RESOURCE_NOT_FOUND"
+                    message: "Account with id '5b7c1f2a-3d4e-4f8a-9b1c-2d3e4f5a6b7c' was not found"
+                    details:
+                      resource: "Account"
+                      id: "5b7c1f2a-3d4e-4f8a-9b1c-2d3e4f5a6b7c"
+        "422":
+          description: Business rule violation.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                ubosNotAllowedForIndividual:
+                  summary: Account has an individual owner (UBOs apply only to companies)
+                  value:
+                    code: "UBOS_NOT_ALLOWED_FOR_INDIVIDUAL"
+                    message: "UBOs are not allowed for individual accounts"
+                    details:
+                      taxId: "12345678900"
 
   /api/accounts/{accountId}/ubos/{uboId}:
     get:
@@ -1278,6 +1492,37 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                accountNotFound:
+                  summary: Account does not exist for the authenticated customer
+                  value:
+                    code: "RESOURCE_NOT_FOUND"
+                    message: "Account with id '5b7c1f2a-3d4e-4f8a-9b1c-2d3e4f5a6b7c' was not found"
+                    details:
+                      resource: "Account"
+                      id: "5b7c1f2a-3d4e-4f8a-9b1c-2d3e4f5a6b7c"
+                uboNotFound:
+                  summary: Beneficial owner does not exist on the account
+                  value:
+                    code: "RESOURCE_NOT_FOUND"
+                    message: "UBO with id 'a1b2c3d4-e5f6-7890-1234-567890abcdef' was not found"
+                    details:
+                      resource: "UBO"
+                      id: "a1b2c3d4-e5f6-7890-1234-567890abcdef"
+        "422":
+          description: Business rule violation.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                ubosNotAllowedForIndividual:
+                  summary: Account has an individual owner (UBOs apply only to companies)
+                  value:
+                    code: "UBOS_NOT_ALLOWED_FOR_INDIVIDUAL"
+                    message: "UBOs are not allowed for individual accounts"
+                    details:
+                      taxId: "12345678900"
     patch:
       operationId: updateUbo
       tags:
@@ -1319,11 +1564,25 @@ paths:
               schema:
                 $ref: "#/components/schemas/UBOResponse"
         "400":
-          description: Invalid request body.
+          description: Invalid request.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                invalidTaxId:
+                  summary: UBO taxId length is not 11 (individual) or 14 (company)
+                  value:
+                    code: "INVALID_TAX_ID"
+                    message: "TaxId must be 11 or 14 characters"
+                    details:
+                      taxIdLength: 10
+                invalidData:
+                  summary: Request body failed validation
+                  value:
+                    code: "INVALID_DATA"
+                    message: "Request body is malformed or missing required fields"
+                    details: {}
         "401":
           description: Missing or invalid authentication token.
           content:
@@ -1336,12 +1595,59 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                accountNotFound:
+                  summary: Account does not exist for the authenticated customer
+                  value:
+                    code: "RESOURCE_NOT_FOUND"
+                    message: "Account with id '5b7c1f2a-3d4e-4f8a-9b1c-2d3e4f5a6b7c' was not found"
+                    details:
+                      resource: "Account"
+                      id: "5b7c1f2a-3d4e-4f8a-9b1c-2d3e4f5a6b7c"
+                uboNotFound:
+                  summary: Beneficial owner does not exist on the account
+                  value:
+                    code: "RESOURCE_NOT_FOUND"
+                    message: "UBO with id 'a1b2c3d4-e5f6-7890-1234-567890abcdef' was not found"
+                    details:
+                      resource: "UBO"
+                      id: "a1b2c3d4-e5f6-7890-1234-567890abcdef"
         "422":
-          description: Validation error (e.g., ownership below 25%, UBO already approved).
+          description: Business rule violation.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                ubosNotAllowedForIndividual:
+                  summary: Account has an individual owner (UBOs apply only to companies)
+                  value:
+                    code: "UBOS_NOT_ALLOWED_FOR_INDIVIDUAL"
+                    message: "UBOs are not allowed for individual accounts"
+                    details:
+                      taxId: "12345678900"
+                accountNotModifiable:
+                  summary: Account is not in a modifiable state
+                  value:
+                    code: "ACCOUNT_NOT_MODIFIABLE"
+                    message: "Account is not in a modifiable state"
+                    details:
+                      accountId: "5b7c1f2a-3d4e-4f8a-9b1c-2d3e4f5a6b7c"
+                approvedUbo:
+                  summary: Cannot modify a UBO that has already been approved
+                  value:
+                    code: "APPROVED_UBO"
+                    message: "Cannot modify an approved UBO"
+                    details:
+                      uboId: "a1b2c3d4-e5f6-7890-1234-567890abcdef"
+                insufficientOwnership:
+                  summary: UBO ownership percentage is below the 25% threshold
+                  value:
+                    code: "INSUFFICIENT_OWNERSHIP"
+                    message: "Partner ownership percentage must be at least 25%"
+                    details:
+                      taxId: "12345678900"
+                      ownershipPercentage: 10.0
     delete:
       operationId: removeUbo
       tags:
@@ -1367,6 +1673,51 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                accountNotFound:
+                  summary: Account does not exist for the authenticated customer
+                  value:
+                    code: "RESOURCE_NOT_FOUND"
+                    message: "Account with id '5b7c1f2a-3d4e-4f8a-9b1c-2d3e4f5a6b7c' was not found"
+                    details:
+                      resource: "Account"
+                      id: "5b7c1f2a-3d4e-4f8a-9b1c-2d3e4f5a6b7c"
+                uboNotFound:
+                  summary: Beneficial owner does not exist on the account
+                  value:
+                    code: "RESOURCE_NOT_FOUND"
+                    message: "UBO with id 'a1b2c3d4-e5f6-7890-1234-567890abcdef' was not found"
+                    details:
+                      resource: "UBO"
+                      id: "a1b2c3d4-e5f6-7890-1234-567890abcdef"
+        "422":
+          description: Business rule violation.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                ubosNotAllowedForIndividual:
+                  summary: Account has an individual owner (UBOs apply only to companies)
+                  value:
+                    code: "UBOS_NOT_ALLOWED_FOR_INDIVIDUAL"
+                    message: "UBOs are not allowed for individual accounts"
+                    details:
+                      taxId: "12345678900"
+                accountNotModifiable:
+                  summary: Account is not in a modifiable state
+                  value:
+                    code: "ACCOUNT_NOT_MODIFIABLE"
+                    message: "Account is not in a modifiable state"
+                    details:
+                      accountId: "5b7c1f2a-3d4e-4f8a-9b1c-2d3e4f5a6b7c"
+                approvedUbo:
+                  summary: Cannot remove a UBO that has already been approved
+                  value:
+                    code: "APPROVED_UBO"
+                    message: "Cannot modify an approved UBO"
+                    details:
+                      uboId: "a1b2c3d4-e5f6-7890-1234-567890abcdef"
 
   # ── UBO documents ────────────────────────────────────────────────
   /api/accounts/{accountId}/ubos/{uboId}/documents:
@@ -1412,6 +1763,28 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                emptyFile:
+                  summary: Uploaded file is empty
+                  value:
+                    code: "EMPTY_FILE"
+                    message: "File must not be empty: fieldName=file"
+                    details:
+                      fieldName: "file"
+                missingMultipartField:
+                  summary: Required multipart field is missing
+                  value:
+                    code: "MISSING_MULTIPART_FIELD"
+                    message: "Missing required multipart field: fieldName=requirementId"
+                    details:
+                      fieldName: "requirementId"
+                invalidUuid:
+                  summary: accountId, uboId, or requirementId is not a valid UUID
+                  value:
+                    code: "INVALID_UUID"
+                    message: "uboId must be a valid UUID"
+                    details:
+                      field: "uboId"
         "401":
           description: Missing or invalid authentication token.
           content:
@@ -1424,3 +1797,20 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                accountNotFound:
+                  summary: Account does not exist for the authenticated customer
+                  value:
+                    code: "RESOURCE_NOT_FOUND"
+                    message: "Account with id '5b7c1f2a-3d4e-4f8a-9b1c-2d3e4f5a6b7c' was not found"
+                    details:
+                      resource: "Account"
+                      id: "5b7c1f2a-3d4e-4f8a-9b1c-2d3e4f5a6b7c"
+                uboNotFound:
+                  summary: Beneficial owner does not exist on the account
+                  value:
+                    code: "RESOURCE_NOT_FOUND"
+                    message: "UBO with id 'a1b2c3d4-e5f6-7890-1234-567890abcdef' was not found"
+                    details:
+                      resource: "UBO"
+                      id: "a1b2c3d4-e5f6-7890-1234-567890abcdef"
