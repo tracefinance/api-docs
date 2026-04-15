@@ -17,7 +17,6 @@ List endpoints return paginated responses using cursor-based pagination. This ap
 | `cursor` | string | — | Cursor returned from a previous response |
 | `direction` | string | — | Pagination direction: `NEXT` or `PREVIOUS` |
 | `sortOrder` | string | `DESCENDING` | Sort direction: `ASCENDING` or `DESCENDING` |
-| `includeTotalMatches` | boolean | `false` | Whether to include the total matching count in the response |
 
 ### Response structure
 
@@ -32,8 +31,7 @@ Every list response includes a `meta` object alongside the `data` array:
   "meta": {
     "previousCursor": null,
     "nextCursor": "eyJpZCI6ImFjY18wMDIifQ",
-    "total": 45,
-    "totalMatches": 45
+    "total": 45
   }
 }
 ```
@@ -43,7 +41,6 @@ Every list response includes a `meta` object alongside the `data` array:
 | `previousCursor` | Cursor to fetch the previous page. `null` on the first page. |
 | `nextCursor` | Cursor to fetch the next page. `null` on the last page. |
 | `total` | Number of items returned in the current page. |
-| `totalMatches` | Total items matching the current filters. Only present when `includeTotalMatches=true`. |
 
 ## Examples
 

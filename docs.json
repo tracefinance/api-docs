@@ -86,14 +86,6 @@
               "api-reference/fx-account/accounts/list-accounts",
               "api-reference/fx-account/accounts/get-account",
               "api-reference/fx-account/accounts/submit-account-for-review",
-              "api-reference/fx-account/documents/upload-account-document",
-              {
-                "group": "Funding instructions",
-                "icon": "money-bill-transfer",
-                "pages": [
-                  "api-reference/fx-account/funding-instructions/list-funding-instructions"
-                ]
-              },
               {
                 "group": "UBOs",
                 "icon": "users",
@@ -102,10 +94,24 @@
                   "api-reference/fx-account/beneficial-owners/list-ubos",
                   "api-reference/fx-account/beneficial-owners/get-ubo",
                   "api-reference/fx-account/beneficial-owners/update-ubo",
-                  "api-reference/fx-account/beneficial-owners/remove-ubo",
-                  "api-reference/fx-account/documents/upload-ubo-document"
+                  "api-reference/fx-account/beneficial-owners/remove-ubo"
                 ]
               }
+            ]
+          },
+          {
+            "group": "Documents",
+            "icon": "file-arrow-up",
+            "pages": [
+              "api-reference/fx-account/documents/upload-account-document",
+              "api-reference/fx-account/documents/upload-ubo-document"
+            ]
+          },
+          {
+            "group": "Funding instructions",
+            "icon": "money-bill-transfer",
+            "pages": [
+              "api-reference/fx-account/funding-instructions/list-funding-instructions"
             ]
           },
           {
@@ -187,6 +193,10 @@
   },
   "metadata": {
     "lastUpdatedDate": true
+  },
+  "contextual": {
+    "options": ["copy", "view", "claude", "chatgpt", "grok", "cursor", "mcp"],
+    "display": "header"
   },
   "footer": {
     "socials": {
