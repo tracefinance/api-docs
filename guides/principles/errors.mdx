@@ -48,9 +48,22 @@ All errors follow the same shape:
 | Code | HTTP status | Description |
 | --- | --- | --- |
 | `INVALID_DATA` | 400 | Request body failed validation |
-| `RESOURCE_NOT_FOUND` | 404 | The requested resource does not exist |
-| `IDEMPOTENT_ID_CONFLICT` | 409 | Idempotency key was already used |
-| `INVALID_STATUS_CHANGE` | 422 | The resource cannot transition to the requested state |
+| `REQUIRED` | 400 | Required field is missing or blank |
+| `INVALID_UUID` | 400 | Field value is not a valid UUID |
+| `INVALID_ENUM` | 400 | Field value is not a valid enum option |
+| `INVALID_DATE` | 400 | Field value is not a valid date format |
+| `INVALID_TYPE` | 400 | Field value does not match the expected type |
+| `MISSING_REQUIRED_HEADER` | 400 | Required HTTP header is missing |
+| `INCOMPATIBLE_CURRENCY` | 400 | Currency does not match the expected value |
+| `INVALID_FILTER_FORMAT` | 400 | Filter query parameter is malformed |
+| `RESOURCE_NOT_FOUND` | 404 | Requested resource does not exist |
+| `IDEMPOTENT_ID_CONFLICT` | 409 | Idempotency key was already used with a different request |
+| `RESOURCE_ALREADY_EXISTS` | 409 | Resource with the given identifier already exists |
+| `ATTRIBUTE_MISMATCH` | 409 | Field value conflicts with existing data |
+| `INVALID_MFA_CODE` | 409 | Provided MFA code is incorrect |
+| `INVALID_STATUS_CHANGE` | 422 | Resource cannot transition to the requested state |
+| `CANNOT_EXECUTE_ACTION` | 422 | Action is not allowed in the current resource state |
+| `REQUIRED_ATTRIBUTE_IS_NULL` | 422 | Required attribute is missing or null |
 | `MFA_NOT_ENABLED` | 422 | Multi-factor authentication is required but not configured |
 
 ### Retry guidance
