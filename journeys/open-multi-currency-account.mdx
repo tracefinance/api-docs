@@ -54,7 +54,7 @@ An account in Trace FX is multi-currency: every account includes crypto support 
     Once all required documents are uploaded, call [`POST /api/accounts/{accountId}/review`](/api-reference/fx-account/accounts/submit-account-for-review) to trigger identity analysis. The account transitions to `REVIEWING`.
   </Step>
   <Step title="Wait for activation">
-    After analysis is approved, each asset activates on its own pipeline. Listen for the `account.activated` webhook event or poll [`GET /api/accounts/{accountId}`](/api-reference/fx-account/accounts/get-account) — the account becomes `ACTIVE` as soon as the first asset finishes onboarding.
+    After analysis is approved, each asset activates on its own pipeline. Listen for the `account.asset_activated` webhook event or poll [`GET /api/accounts/{accountId}`](/api-reference/fx-account/accounts/get-account) — the account becomes `ACTIVE` as soon as the first asset finishes onboarding.
   </Step>
   <Step title="Retrieve funding instructions">
     Once the account is active, call [`GET /api/accounts/{accountId}/fundingInstructions`](/api-reference/fx-account/funding-instructions/list-funding-instructions) to retrieve incoming transfer details per active asset: PIX key and bank account for BRL, wallet address for crypto.
