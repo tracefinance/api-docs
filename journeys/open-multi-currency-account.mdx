@@ -48,16 +48,101 @@ An account in Trace FX is multi-currency: every account includes crypto support 
     The response returns the account in `REQUESTED` status along with the document types required for onboarding. Fiat onboarding requires document uploads; crypto has none.
   </Step>
   <Step title="Upload required documents">
-    For each document type returned in the creation response, upload the file using [`POST /api/accounts/{accountId}/documents`](/api-reference/fx-account/documents/upload-account-document).
+    The creation response includes a `requirements.currentlyDue` array listing every document you need to provide. Each item has a `documentType` — use that as the multipart field name when uploading:
+
+    ```bash
+    curl --request POST \
+      --url {{sandboxUrl}}/api/accounts/<account-id>/documents \
+      --header 'Authorization: Bearer <token>' \
+      --header 'X-Idempotency-Key: <unique-key>' \
+      --form 'CNPJ_CERTIFICATE=@/path/to/cnpj-certificate.pdf' \
+      --form 'PROOF_OF_ADDRESS=@/path/to/proof-of-address.pdf'
+    ```
+
+    Returns `204 No Content`. You can send multiple documents in a single request. Upload every `documentType` listed in `currentlyDue` before proceeding.
+  </Step>
+  <Step title="Add beneficial owners (company accounts)">
+    Company-owned accounts require at least one beneficial owner (UBO). Register each UBO with their identity and address details:
+
+    ```bash
+    curl --request POST \
+      --url {{sandboxUrl}}/api/accounts/<account-id>/ubos \
+      --header 'Authorization: Bearer <token>' \
+      --header 'X-Idempotency-Key: <unique-key>' \
+      --header 'Content-Type: application/json' \
+      --data '{
+        "name": "João Silva",
+        "taxId": "12345678900",
+        "address": {
+          "addressLine1": "Rua das Flores, 100",
+          "city": "São Paulo",
+          "state": "SP",
+          "country": "BR",
+          "postalCode": "01234-567"
+        },
+        "ownershipPercentage": 50.0
+      }'
+    ```
+
+    The response includes the UBO's `id`, which you'll need for uploading their documents.
+  </Step>
+  <Step title="Upload UBO documents">
+    Each UBO needs identity documents. Upload them using the UBO's `id` in the path — the multipart field name is the `documentType`, same as account documents:
+
+    ```bash
+    curl --request POST \
+      --url {{sandboxUrl}}/api/accounts/<account-id>/ubos/<ubo-id>/documents \
+      --header 'Authorization: Bearer <token>' \
+      --header 'X-Idempotency-Key: <unique-key>' \
+      --form 'IDENTITY_DOCUMENT=@/path/to/ubo-identity.pdf'
+    ```
+
+    Returns `204 No Content`. Repeat for every UBO registered on the account.
   </Step>
   <Step title="Submit for review">
-    Once all required documents are uploaded, call [`POST /api/accounts/{accountId}/review`](/api-reference/fx-account/accounts/submit-account-for-review) to trigger identity analysis. The account transitions to `REVIEWING`.
+    Once all required documents are uploaded, submit the account for identity analysis. This endpoint has no request body:
+
+    ```bash
+    curl --request POST \
+      --url {{sandboxUrl}}/api/accounts/<account-id>/review \
+      --header 'Authorization: Bearer <token>' \
+      --header 'X-Idempotency-Key: <unique-key>'
+    ```
+
+    Returns `202 Accepted`. The account transitions to `REVIEWING`. If any documents are still missing, the API returns `422` with a `MISSING_DOCUMENTS_FOR_REVIEW` error listing the outstanding types.
   </Step>
   <Step title="Wait for activation">
     After analysis is approved, each asset activates on its own pipeline. Listen for the `account.asset_activated` webhook event or poll [`GET /api/accounts/{accountId}`](/api-reference/fx-account/accounts/get-account) — the account becomes `ACTIVE` as soon as the first asset finishes onboarding.
   </Step>
   <Step title="Retrieve funding instructions">
-    Once the account is active, call [`GET /api/accounts/{accountId}/fundingInstructions`](/api-reference/fx-account/funding-instructions/list-funding-instructions) to retrieve incoming transfer details per active asset: PIX key and bank account for BRL, wallet address for crypto.
+    Once the account is active, retrieve the incoming transfer details for each active asset:
+
+    ```bash
+    curl --request GET \
+      --url {{sandboxUrl}}/api/accounts/<account-id>/fundingInstructions \
+      --header 'Authorization: Bearer <token>'
+    ```
+
+    ```json Response
+    [
+      {
+        "asset": "BRL",
+        "rail": "PIX",
+        "type": "PIX_KEY",
+        "keyType": "CNPJ",
+        "key": "12345678000101"
+      },
+      {
+        "asset": "BRL",
+        "rail": "TED",
+        "type": "TED",
+        "bankCode": "001",
+        "branch": "0001",
+        "accountNumber": "123456-7",
+        "accountType": "CHECKING"
+      }
+    ]
+    ```
   </Step>
 </Steps>
 
