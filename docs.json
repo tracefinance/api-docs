@@ -149,15 +149,10 @@
   "navbar": {
     "links": [
       {
-        "label": "Support",
-        "href": "mailto:support@tracefinance.io"
+        "label": "Dashboard",
+        "href": "https://dashboard.tracefinance.com/"
       }
-    ],
-    "primary": {
-      "type": "button",
-      "label": "Get started",
-      "href": "/quickstart"
-    }
+    ]
   },
   "api": {
     "baseUrl": [

@@ -1,0 +1,29 @@
+/* ── Navbar: Dashboard button ────────────────────────────────────── */
+
+.navbar-link a {
+  border: 1px solid rgba(21, 128, 61, 0.25);
+  border-radius: 10px;
+  padding: 7px 22px !important;
+  font-size: 0.8125rem;
+  letter-spacing: 0.02em;
+  font-weight: 500;
+  color: rgba(21, 128, 61, 0.85) !important;
+  transition: all 0.25s ease;
+}
+
+.dark .navbar-link a {
+  border-color: rgba(24, 226, 153, 0.2);
+  color: rgba(24, 226, 153, 0.7) !important;
+}
+
+.navbar-link a:hover {
+  border-color: rgba(21, 128, 61, 0.5);
+  color: #15803D !important;
+  background: rgba(21, 128, 61, 0.04);
+}
+
+.dark .navbar-link a:hover {
+  border-color: rgba(24, 226, 153, 0.4);
+  color: #18E299 !important;
+  background: rgba(24, 226, 153, 0.06);
+}
