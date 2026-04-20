@@ -217,15 +217,12 @@ components:
         code:
           type: string
           description: Machine-readable error code.
-          example: "RESOURCE_NOT_FOUND"
         message:
           type: string
           description: Human-readable description.
-          example: "The requested resource was not found"
         details:
           type: object
           additionalProperties: true
-          example: {}
       required:
         - code
         - message
@@ -868,6 +865,40 @@ components:
         - type
         - details
         - createdAt
+  responses:
+    UnauthorizedError:
+      description: Missing or invalid authentication token.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          examples:
+            invalidToken:
+              $ref: "#/components/examples/InvalidToken"
+            expiredToken:
+              $ref: "#/components/examples/ExpiredToken"
+  examples:
+    InvalidToken:
+      summary: Bearer token is invalid or malformed
+      value:
+        code: "INVALID_ACCESS_TOKEN"
+        message: "Invalid access token"
+        details: {}
+    ExpiredToken:
+      summary: Bearer token has expired
+      value:
+        code: "EXPIRED_ACCESS_TOKEN"
+        message: "Expired access token"
+        details: {}
+    BeneficiaryNotFound:
+      summary: Beneficiary does not exist for the authenticated customer
+      value:
+        code: "RESOURCE_NOT_FOUND"
+        message: "Beneficiary with given parameters [id:ben-a1b2c3d4-5e6f-7890-abcd-ef1234567890] not found"
+        details:
+          resource: "Beneficiary"
+          parameters:
+            id: "ben-a1b2c3d4-5e6f-7890-abcd-ef1234567890"
 
 paths:
   # ── Operations: Deposits ──────────────────────────────────────────
@@ -912,23 +943,66 @@ paths:
               schema:
                 $ref: "#/components/schemas/OperationResponse"
         "401":
-          description: Missing or invalid authentication token.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
+          $ref: "#/components/responses/UnauthorizedError"
         "404":
           description: Account or funding instruction not found.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                accountNotFound:
+                  summary: Account does not exist for the authenticated customer
+                  value:
+                    code: "ACCOUNT_NOT_FOUND"
+                    message: "Account not found"
+                    details:
+                      accountId: "a1b2c3d4-5e6f-7890-abcd-ef1234567890"
+                fundingInstructionNotFound:
+                  summary: No funding instruction for the requested rail and asset
+                  value:
+                    code: "FUNDING_INSTRUCTION_NOT_FOUND"
+                    message: "Funding instruction not found"
+                    details:
+                      rail: "PIX"
+                      asset: "BRL"
         "422":
           description: Validation error (invalid amount, missing amount, invalid rail or asset).
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                invalidAmount:
+                  summary: Amount must be a positive integer
+                  value:
+                    code: "INVALID_AMOUNT"
+                    message: "Amount must be positive"
+                    details:
+                      amount: 0
+                invalidSourceAsset:
+                  summary: Source asset is not available on the account
+                  value:
+                    code: "INVALID_SOURCE_ASSET"
+                    message: "Asset not supported for source"
+                    details:
+                      asset: "EUR"
+                      accountId: "a1b2c3d4-5e6f-7890-abcd-ef1234567890"
+                invalidRail:
+                  summary: Rail not supported for the given asset
+                  value:
+                    code: "INVALID_RAIL"
+                    message: "Rail not supported for asset"
+                    details:
+                      rail: "TED"
+                      asset: "USDT"
+                quoteCreationFailed:
+                  summary: Unable to create a quote for the requested pair
+                  value:
+                    code: "QUOTE_CREATION_FAILED"
+                    message: "Failed to create quote"
+                    details:
+                      reason: "No rate available for the requested currency pair"
 
   # ── Operations: Withdrawals ───────────────────────────────────────
   /api/withdrawals:
@@ -992,23 +1066,74 @@ paths:
               schema:
                 $ref: "#/components/schemas/OperationResponse"
         "401":
-          description: Missing or invalid authentication token.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
+          $ref: "#/components/responses/UnauthorizedError"
         "404":
           description: Account, beneficiary, or payment instruction not found.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                accountNotFound:
+                  summary: Account does not exist for the authenticated customer
+                  value:
+                    code: "ACCOUNT_NOT_FOUND"
+                    message: "Account not found"
+                    details:
+                      accountId: "a1b2c3d4-5e6f-7890-abcd-ef1234567890"
+                beneficiaryNotFound:
+                  summary: Referenced beneficiary does not exist
+                  value:
+                    code: "RESOURCE_NOT_FOUND"
+                    message: "Beneficiary with given parameters [id:b2c3d4e5-f6a7-8901-bcde-f12345678901] not found"
+                    details:
+                      resource: "Beneficiary"
+                      parameters:
+                        id: "b2c3d4e5-f6a7-8901-bcde-f12345678901"
         "422":
           description: Validation error (invalid amount, invalid destination, beneficiary not approved).
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                invalidAmount:
+                  summary: Amount must be a positive integer
+                  value:
+                    code: "INVALID_AMOUNT"
+                    message: "Amount must be positive"
+                    details:
+                      amount: 0
+                insufficientBalance:
+                  summary: Account does not have enough funds
+                  value:
+                    code: "INSUFFICIENT_BALANCE"
+                    message: "Insufficient balance"
+                    details:
+                      accountId: "a1b2c3d4-5e6f-7890-abcd-ef1234567890"
+                beneficiaryNotApproved:
+                  summary: Beneficiary has not been approved yet
+                  value:
+                    code: "BENEFICIARY_NOT_APPROVED"
+                    message: "Beneficiary is not approved"
+                    details:
+                      beneficiaryId: "b2c3d4e5-f6a7-8901-bcde-f12345678901"
+                      status: "PENDING_REVIEW"
+                invalidDestination:
+                  summary: Destination details are invalid or incomplete
+                  value:
+                    code: "INVALID_DESTINATION"
+                    message: "Invalid destination"
+                    details:
+                      reason: "QR code payload is invalid or expired"
+                invalidSourceAsset:
+                  summary: Source asset is not available on the account
+                  value:
+                    code: "INVALID_SOURCE_ASSET"
+                    message: "Asset not supported for source"
+                    details:
+                      asset: "EUR"
+                      accountId: "a1b2c3d4-5e6f-7890-abcd-ef1234567890"
 
   # ── Operations: Swaps ─────────────────────────────────────────────
   /api/swaps:
@@ -1043,23 +1168,65 @@ paths:
               schema:
                 $ref: "#/components/schemas/OperationResponse"
         "401":
-          description: Missing or invalid authentication token.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
+          $ref: "#/components/responses/UnauthorizedError"
         "404":
           description: Account not found.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                accountNotFound:
+                  summary: Account does not exist for the authenticated customer
+                  value:
+                    code: "ACCOUNT_NOT_FOUND"
+                    message: "Account not found"
+                    details:
+                      accountId: "a1b2c3d4-5e6f-7890-abcd-ef1234567890"
         "422":
           description: Validation error (same asset, invalid amount, invalid source or target asset).
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                invalidAmount:
+                  summary: Amount must be a positive integer
+                  value:
+                    code: "INVALID_AMOUNT"
+                    message: "Amount must be positive"
+                    details:
+                      amount: 0
+                insufficientBalance:
+                  summary: Account does not have enough funds
+                  value:
+                    code: "INSUFFICIENT_BALANCE"
+                    message: "Insufficient balance"
+                    details:
+                      accountId: "a1b2c3d4-5e6f-7890-abcd-ef1234567890"
+                invalidSourceAsset:
+                  summary: Source asset is not available on the account
+                  value:
+                    code: "INVALID_SOURCE_ASSET"
+                    message: "Asset not supported for source"
+                    details:
+                      asset: "EUR"
+                      accountId: "a1b2c3d4-5e6f-7890-abcd-ef1234567890"
+                invalidTargetAsset:
+                  summary: Target asset is not available on the account
+                  value:
+                    code: "INVALID_TARGET_ASSET"
+                    message: "Asset not supported for target"
+                    details:
+                      asset: "EUR"
+                      accountId: "a1b2c3d4-5e6f-7890-abcd-ef1234567890"
+                quoteCreationFailed:
+                  summary: Unable to create a quote for the requested pair
+                  value:
+                    code: "QUOTE_CREATION_FAILED"
+                    message: "Failed to create quote"
+                    details:
+                      reason: "No rate available for the requested currency pair"
 
   # ── Operations: Read ──────────────────────────────────────────────
   /api/operations/{operationId}:
@@ -1080,17 +1247,23 @@ paths:
               schema:
                 $ref: "#/components/schemas/OperationResponse"
         "401":
-          description: Missing or invalid authentication token.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
+          $ref: "#/components/responses/UnauthorizedError"
         "404":
           description: Operation not found.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                operationNotFound:
+                  summary: Operation does not exist for the authenticated customer
+                  value:
+                    code: "RESOURCE_NOT_FOUND"
+                    message: "Operation with given parameters [id:op-a1b2c3d4-5e6f-7890-abcd-ef1234567890] not found"
+                    details:
+                      resource: "Operation"
+                      parameters:
+                        id: "op-a1b2c3d4-5e6f-7890-abcd-ef1234567890"
 
   /api/operations:
     get:
@@ -1144,17 +1317,36 @@ paths:
                   - data
                   - meta
         "401":
-          description: Missing or invalid authentication token.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
+          $ref: "#/components/responses/UnauthorizedError"
         "422":
           description: Invalid filter parameter.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                invalidType:
+                  summary: Operation type filter is not a valid enum
+                  value:
+                    code: "INVALID_DATA"
+                    message: "Object contains invalid data"
+                    details:
+                      errors:
+                        - code: "INVALID_ENUM"
+                          message: "'TRANSFER' is not a valid enum"
+                          field: "query:type"
+                          params: {}
+                invalidStatus:
+                  summary: Operation status filter is not a valid enum
+                  value:
+                    code: "INVALID_DATA"
+                    message: "Object contains invalid data"
+                    details:
+                      errors:
+                        - code: "INVALID_ENUM"
+                          message: "'DONE' is not a valid enum"
+                          field: "query:status"
+                          params: {}
 
   # ── Beneficiaries ─────────────────────────────────────────────────
   /api/beneficiaries:
@@ -1217,17 +1409,35 @@ paths:
               schema:
                 $ref: "#/components/schemas/BeneficiaryResponse"
         "401":
-          description: Missing or invalid authentication token.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
+          $ref: "#/components/responses/UnauthorizedError"
         "422":
           description: Validation error (invalid holder type, invalid instruction type, missing details).
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                invalidData:
+                  summary: Request body failed validation
+                  value:
+                    code: "INVALID_DATA"
+                    message: "Object contains invalid data"
+                    details:
+                      errors:
+                        - code: "REQUIRED"
+                          message: "Parameter 'body:holder' not found in request"
+                          field: "body:holder"
+                          params: {}
+                missingPaymentInstructionDetails:
+                  summary: Payment instruction is missing required fields
+                  value:
+                    code: "MISSING_PAYMENT_INSTRUCTION_DETAILS"
+                    message: "Missing required payment instruction details"
+                    details:
+                      type: "PIX"
+                      missingKeys:
+                        - "pixKeyType"
+                        - "pixKey"
     get:
       operationId: listBeneficiaries
       tags:
@@ -1266,17 +1476,25 @@ paths:
                   - data
                   - meta
         "401":
-          description: Missing or invalid authentication token.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
+          $ref: "#/components/responses/UnauthorizedError"
         "422":
           description: Invalid filter parameter.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                invalidStatus:
+                  summary: Beneficiary status filter is not a valid enum
+                  value:
+                    code: "INVALID_DATA"
+                    message: "Object contains invalid data"
+                    details:
+                      errors:
+                        - code: "INVALID_ENUM"
+                          message: "'ACTIVE' is not a valid enum"
+                          field: "query:status"
+                          params: {}
 
   /api/beneficiaries/{beneficiaryId}:
     get:
@@ -1296,17 +1514,16 @@ paths:
               schema:
                 $ref: "#/components/schemas/BeneficiaryResponse"
         "401":
-          description: Missing or invalid authentication token.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
+          $ref: "#/components/responses/UnauthorizedError"
         "404":
           description: Beneficiary not found.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                beneficiaryNotFound:
+                  $ref: "#/components/examples/BeneficiaryNotFound"
     put:
       operationId: updateBeneficiary
       tags:
@@ -1338,23 +1555,34 @@ paths:
               schema:
                 $ref: "#/components/schemas/BeneficiaryResponse"
         "401":
-          description: Missing or invalid authentication token.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
+          $ref: "#/components/responses/UnauthorizedError"
         "404":
           description: Beneficiary not found.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                beneficiaryNotFound:
+                  $ref: "#/components/examples/BeneficiaryNotFound"
         "422":
           description: Validation error (invalid holder type).
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                invalidData:
+                  summary: Request body failed validation
+                  value:
+                    code: "INVALID_DATA"
+                    message: "Object contains invalid data"
+                    details:
+                      errors:
+                        - code: "REQUIRED"
+                          message: "Parameter 'body:holder' not found in request"
+                          field: "body:holder"
+                          params: {}
     delete:
       operationId: deleteBeneficiary
       tags:
@@ -1368,17 +1596,16 @@ paths:
         "204":
           description: Beneficiary deleted.
         "401":
-          description: Missing or invalid authentication token.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
+          $ref: "#/components/responses/UnauthorizedError"
         "404":
           description: Beneficiary not found.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                beneficiaryNotFound:
+                  $ref: "#/components/examples/BeneficiaryNotFound"
 
   # ── Payment instructions ──────────────────────────────────────────
   /api/beneficiaries/{beneficiaryId}/payment-instructions:
@@ -1421,23 +1648,35 @@ paths:
               schema:
                 $ref: "#/components/schemas/BeneficiaryResponse"
         "401":
-          description: Missing or invalid authentication token.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
+          $ref: "#/components/responses/UnauthorizedError"
         "404":
           description: Beneficiary not found.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                beneficiaryNotFound:
+                  $ref: "#/components/examples/BeneficiaryNotFound"
         "422":
           description: Validation error (invalid instruction type, missing details).
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                missingPaymentInstructionDetails:
+                  summary: Payment instruction is missing required fields
+                  value:
+                    code: "MISSING_PAYMENT_INSTRUCTION_DETAILS"
+                    message: "Missing required payment instruction details"
+                    details:
+                      type: "BANK_ACCOUNT"
+                      missingKeys:
+                        - "bankCode"
+                        - "branch"
+                        - "accountNumber"
+                        - "accountType"
 
   /api/beneficiaries/{beneficiaryId}/payment-instructions/{paymentInstructionId}:
     delete:
@@ -1454,14 +1693,22 @@ paths:
         "204":
           description: Payment instruction removed.
         "401":
-          description: Missing or invalid authentication token.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
+          $ref: "#/components/responses/UnauthorizedError"
         "404":
           description: Beneficiary or payment instruction not found.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                beneficiaryNotFound:
+                  $ref: "#/components/examples/BeneficiaryNotFound"
+                paymentInstructionNotFound:
+                  summary: Payment instruction does not exist on the beneficiary
+                  value:
+                    code: "RESOURCE_NOT_FOUND"
+                    message: "PaymentInstruction with given parameters [id:pi-a1b2c3d4-5e6f-7890-abcd-ef1234567890] not found"
+                    details:
+                      resource: "PaymentInstruction"
+                      parameters:
+                        id: "pi-a1b2c3d4-5e6f-7890-abcd-ef1234567890"

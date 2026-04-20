@@ -828,18 +828,59 @@ components:
         code:
           type: string
           description: Machine-readable error code.
-          example: "RESOURCE_NOT_FOUND"
         message:
           type: string
           description: Human-readable description.
-          example: "The requested resource was not found"
         details:
           type: object
           additionalProperties: true
-          example: {}
       required:
         - code
         - message
+  responses:
+    UnauthorizedError:
+      description: Missing or invalid authentication token.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          examples:
+            invalidToken:
+              $ref: "#/components/examples/InvalidToken"
+            expiredToken:
+              $ref: "#/components/examples/ExpiredToken"
+  examples:
+    InvalidToken:
+      summary: Bearer token is invalid or malformed
+      value:
+        code: "INVALID_ACCESS_TOKEN"
+        message: "Invalid access token"
+        details: {}
+    ExpiredToken:
+      summary: Bearer token has expired
+      value:
+        code: "EXPIRED_ACCESS_TOKEN"
+        message: "Expired access token"
+        details: {}
+    AccountNotFound:
+      summary: Account does not exist for the authenticated customer
+      value:
+        code: "RESOURCE_NOT_FOUND"
+        message: "Account with given parameters [Account.id:5b7c1f2a-3d4e-4f8a-9b1c-2d3e4f5a6b7c, Customer.id:c1a2b3c4-d5e6-7890-abcd-ef1234567890] not found"
+        details:
+          resource: "Account"
+          parameters:
+            Account.id: "5b7c1f2a-3d4e-4f8a-9b1c-2d3e4f5a6b7c"
+            Customer.id: "c1a2b3c4-d5e6-7890-abcd-ef1234567890"
+    UboNotFound:
+      summary: Beneficial owner does not exist on the account
+      value:
+        code: "RESOURCE_NOT_FOUND"
+        message: "UBO with given parameters [UBO.id:a1b2c3d4-e5f6-7890-1234-567890abcdef] not found"
+        details:
+          resource: "UBO"
+          parameters:
+            UBO.id: "a1b2c3d4-e5f6-7890-1234-567890abcdef"
 
 paths:
   # ── Account endpoints ────────────────────────────────────────────
@@ -927,20 +968,31 @@ paths:
                   summary: Request body failed validation
                   value:
                     code: "INVALID_DATA"
-                    message: "Request body is malformed or missing required fields"
-                    details: {}
+                    message: "Object contains invalid data"
+                    details:
+                      errors:
+                        - code: "REQUIRED"
+                          message: "Parameter 'body:assets' not found in request"
+                          field: "body:assets"
+                          params: {}
         "401":
-          description: Missing or invalid authentication token.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
+          $ref: "#/components/responses/UnauthorizedError"
         "404":
           description: Customer not found.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                customerNotFound:
+                  summary: Customer not found for the authenticated token
+                  value:
+                    code: "RESOURCE_NOT_FOUND"
+                    message: "Customer with given parameters [id:c1a2b3c4-d5e6-7890-abcd-ef1234567890] not found"
+                    details:
+                      resource: "Customer"
+                      parameters:
+                        id: "c1a2b3c4-d5e6-7890-abcd-ef1234567890"
         "422":
           description: Business rule violation.
           content:
@@ -986,11 +1038,7 @@ paths:
                   - data
                   - meta
         "401":
-          description: Missing or invalid authentication token.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
+          $ref: "#/components/responses/UnauthorizedError"
 
   /api/accounts/{accountId}:
     get:
@@ -1019,16 +1067,16 @@ paths:
                 invalidUuid:
                   summary: accountId path parameter is not a valid UUID
                   value:
-                    code: "INVALID_UUID"
-                    message: "accountId must be a valid UUID"
+                    code: "INVALID_DATA"
+                    message: "Object contains invalid data"
                     details:
-                      field: "accountId"
+                      errors:
+                        - code: "INVALID_UUID"
+                          message: "'not-a-uuid' cannot be converted to UUID"
+                          field: "path:accountId"
+                          params: {}
         "401":
-          description: Missing or invalid authentication token.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
+          $ref: "#/components/responses/UnauthorizedError"
         "404":
           description: Account not found.
           content:
@@ -1037,13 +1085,7 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
               examples:
                 accountNotFound:
-                  summary: Account does not exist for the authenticated customer
-                  value:
-                    code: "RESOURCE_NOT_FOUND"
-                    message: "Account with id '5b7c1f2a-3d4e-4f8a-9b1c-2d3e4f5a6b7c' was not found"
-                    details:
-                      resource: "Account"
-                      id: "5b7c1f2a-3d4e-4f8a-9b1c-2d3e4f5a6b7c"
+                  $ref: "#/components/examples/AccountNotFound"
 
   /api/accounts/{accountId}/review:
     post:
@@ -1060,11 +1102,7 @@ paths:
         "202":
           description: Account submitted for review.
         "401":
-          description: Missing or invalid authentication token.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
+          $ref: "#/components/responses/UnauthorizedError"
         "404":
           description: Account not found.
           content:
@@ -1073,13 +1111,7 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
               examples:
                 accountNotFound:
-                  summary: Account does not exist for the authenticated customer
-                  value:
-                    code: "RESOURCE_NOT_FOUND"
-                    message: "Account with id '5b7c1f2a-3d4e-4f8a-9b1c-2d3e4f5a6b7c' was not found"
-                    details:
-                      resource: "Account"
-                      id: "5b7c1f2a-3d4e-4f8a-9b1c-2d3e4f5a6b7c"
+                  $ref: "#/components/examples/AccountNotFound"
         "409":
           description: Account state conflict.
           content:
@@ -1092,6 +1124,13 @@ paths:
                   value:
                     code: "NO_PROVIDER_ACCOUNT_REQUIRES_ANALYSIS"
                     message: "Account has no provider accounts requiring analysis"
+                    details:
+                      accountId: "5b7c1f2a-3d4e-4f8a-9b1c-2d3e4f5a6b7c"
+                reviewAlreadySubmitted:
+                  summary: Review has already been submitted for the account
+                  value:
+                    code: "REVIEW_ALREADY_SUBMITTED"
+                    message: "Review already submitted for account"
                     details:
                       accountId: "5b7c1f2a-3d4e-4f8a-9b1c-2d3e4f5a6b7c"
         "422":
@@ -1167,16 +1206,16 @@ paths:
                 invalidUuid:
                   summary: accountId path parameter is not a valid UUID
                   value:
-                    code: "INVALID_UUID"
-                    message: "accountId must be a valid UUID"
+                    code: "INVALID_DATA"
+                    message: "Object contains invalid data"
                     details:
-                      field: "accountId"
+                      errors:
+                        - code: "INVALID_UUID"
+                          message: "'not-a-uuid' cannot be converted to UUID"
+                          field: "path:accountId"
+                          params: {}
         "401":
-          description: Missing or invalid authentication token.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
+          $ref: "#/components/responses/UnauthorizedError"
         "404":
           description: Account not found.
           content:
@@ -1185,13 +1224,7 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
               examples:
                 accountNotFound:
-                  summary: Account does not exist for the authenticated customer
-                  value:
-                    code: "RESOURCE_NOT_FOUND"
-                    message: "Account with id '5b7c1f2a-3d4e-4f8a-9b1c-2d3e4f5a6b7c' was not found"
-                    details:
-                      resource: "Account"
-                      id: "5b7c1f2a-3d4e-4f8a-9b1c-2d3e4f5a6b7c"
+                  $ref: "#/components/examples/AccountNotFound"
 
   # ── Account documents ────────────────────────────────────────────
   /api/accounts/{accountId}/documents:
@@ -1254,16 +1287,16 @@ paths:
                 invalidUuid:
                   summary: accountId or requirementId is not a valid UUID
                   value:
-                    code: "INVALID_UUID"
-                    message: "accountId must be a valid UUID"
+                    code: "INVALID_DATA"
+                    message: "Object contains invalid data"
                     details:
-                      field: "accountId"
+                      errors:
+                        - code: "INVALID_UUID"
+                          message: "'not-a-uuid' cannot be converted to UUID"
+                          field: "path:accountId"
+                          params: {}
         "401":
-          description: Missing or invalid authentication token.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
+          $ref: "#/components/responses/UnauthorizedError"
         "404":
           description: Account not found.
           content:
@@ -1272,13 +1305,7 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
               examples:
                 accountNotFound:
-                  summary: Account does not exist for the authenticated customer
-                  value:
-                    code: "RESOURCE_NOT_FOUND"
-                    message: "Account with id '5b7c1f2a-3d4e-4f8a-9b1c-2d3e4f5a6b7c' was not found"
-                    details:
-                      resource: "Account"
-                      id: "5b7c1f2a-3d4e-4f8a-9b1c-2d3e4f5a6b7c"
+                  $ref: "#/components/examples/AccountNotFound"
         "422":
           description: No matching requirement for the given requirement ID.
           content:
@@ -1342,14 +1369,15 @@ paths:
                   summary: Request body failed validation
                   value:
                     code: "INVALID_DATA"
-                    message: "Request body is malformed or missing required fields"
-                    details: {}
+                    message: "Object contains invalid data"
+                    details:
+                      errors:
+                        - code: "REQUIRED"
+                          message: "Parameter 'body:name' not found in request"
+                          field: "body:name"
+                          params: {}
         "401":
-          description: Missing or invalid authentication token.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
+          $ref: "#/components/responses/UnauthorizedError"
         "404":
           description: Account not found.
           content:
@@ -1358,13 +1386,7 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
               examples:
                 accountNotFound:
-                  summary: Account does not exist for the authenticated customer
-                  value:
-                    code: "RESOURCE_NOT_FOUND"
-                    message: "Account with id '5b7c1f2a-3d4e-4f8a-9b1c-2d3e4f5a6b7c' was not found"
-                    details:
-                      resource: "Account"
-                      id: "5b7c1f2a-3d4e-4f8a-9b1c-2d3e4f5a6b7c"
+                  $ref: "#/components/examples/AccountNotFound"
         "409":
           description: UBO already exists.
           content:
@@ -1427,11 +1449,7 @@ paths:
                 items:
                   $ref: "#/components/schemas/UBOResponse"
         "401":
-          description: Missing or invalid authentication token.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
+          $ref: "#/components/responses/UnauthorizedError"
         "404":
           description: Account not found.
           content:
@@ -1440,13 +1458,7 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
               examples:
                 accountNotFound:
-                  summary: Account does not exist for the authenticated customer
-                  value:
-                    code: "RESOURCE_NOT_FOUND"
-                    message: "Account with id '5b7c1f2a-3d4e-4f8a-9b1c-2d3e4f5a6b7c' was not found"
-                    details:
-                      resource: "Account"
-                      id: "5b7c1f2a-3d4e-4f8a-9b1c-2d3e4f5a6b7c"
+                  $ref: "#/components/examples/AccountNotFound"
         "422":
           description: Business rule violation.
           content:
@@ -1481,11 +1493,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/UBOResponse"
         "401":
-          description: Missing or invalid authentication token.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
+          $ref: "#/components/responses/UnauthorizedError"
         "404":
           description: Account or beneficial owner not found.
           content:
@@ -1494,21 +1502,9 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
               examples:
                 accountNotFound:
-                  summary: Account does not exist for the authenticated customer
-                  value:
-                    code: "RESOURCE_NOT_FOUND"
-                    message: "Account with id '5b7c1f2a-3d4e-4f8a-9b1c-2d3e4f5a6b7c' was not found"
-                    details:
-                      resource: "Account"
-                      id: "5b7c1f2a-3d4e-4f8a-9b1c-2d3e4f5a6b7c"
+                  $ref: "#/components/examples/AccountNotFound"
                 uboNotFound:
-                  summary: Beneficial owner does not exist on the account
-                  value:
-                    code: "RESOURCE_NOT_FOUND"
-                    message: "UBO with id 'a1b2c3d4-e5f6-7890-1234-567890abcdef' was not found"
-                    details:
-                      resource: "UBO"
-                      id: "a1b2c3d4-e5f6-7890-1234-567890abcdef"
+                  $ref: "#/components/examples/UboNotFound"
         "422":
           description: Business rule violation.
           content:
@@ -1581,14 +1577,15 @@ paths:
                   summary: Request body failed validation
                   value:
                     code: "INVALID_DATA"
-                    message: "Request body is malformed or missing required fields"
-                    details: {}
+                    message: "Object contains invalid data"
+                    details:
+                      errors:
+                        - code: "REQUIRED"
+                          message: "Parameter 'body:name' not found in request"
+                          field: "body:name"
+                          params: {}
         "401":
-          description: Missing or invalid authentication token.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
+          $ref: "#/components/responses/UnauthorizedError"
         "404":
           description: Account or beneficial owner not found.
           content:
@@ -1597,21 +1594,9 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
               examples:
                 accountNotFound:
-                  summary: Account does not exist for the authenticated customer
-                  value:
-                    code: "RESOURCE_NOT_FOUND"
-                    message: "Account with id '5b7c1f2a-3d4e-4f8a-9b1c-2d3e4f5a6b7c' was not found"
-                    details:
-                      resource: "Account"
-                      id: "5b7c1f2a-3d4e-4f8a-9b1c-2d3e4f5a6b7c"
+                  $ref: "#/components/examples/AccountNotFound"
                 uboNotFound:
-                  summary: Beneficial owner does not exist on the account
-                  value:
-                    code: "RESOURCE_NOT_FOUND"
-                    message: "UBO with id 'a1b2c3d4-e5f6-7890-1234-567890abcdef' was not found"
-                    details:
-                      resource: "UBO"
-                      id: "a1b2c3d4-e5f6-7890-1234-567890abcdef"
+                  $ref: "#/components/examples/UboNotFound"
         "422":
           description: Business rule violation.
           content:
@@ -1662,11 +1647,7 @@ paths:
         "204":
           description: Beneficial owner removed.
         "401":
-          description: Missing or invalid authentication token.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
+          $ref: "#/components/responses/UnauthorizedError"
         "404":
           description: Account or beneficial owner not found.
           content:
@@ -1675,21 +1656,9 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
               examples:
                 accountNotFound:
-                  summary: Account does not exist for the authenticated customer
-                  value:
-                    code: "RESOURCE_NOT_FOUND"
-                    message: "Account with id '5b7c1f2a-3d4e-4f8a-9b1c-2d3e4f5a6b7c' was not found"
-                    details:
-                      resource: "Account"
-                      id: "5b7c1f2a-3d4e-4f8a-9b1c-2d3e4f5a6b7c"
+                  $ref: "#/components/examples/AccountNotFound"
                 uboNotFound:
-                  summary: Beneficial owner does not exist on the account
-                  value:
-                    code: "RESOURCE_NOT_FOUND"
-                    message: "UBO with id 'a1b2c3d4-e5f6-7890-1234-567890abcdef' was not found"
-                    details:
-                      resource: "UBO"
-                      id: "a1b2c3d4-e5f6-7890-1234-567890abcdef"
+                  $ref: "#/components/examples/UboNotFound"
         "422":
           description: Business rule violation.
           content:
@@ -1781,16 +1750,16 @@ paths:
                 invalidUuid:
                   summary: accountId, uboId, or requirementId is not a valid UUID
                   value:
-                    code: "INVALID_UUID"
-                    message: "uboId must be a valid UUID"
+                    code: "INVALID_DATA"
+                    message: "Object contains invalid data"
                     details:
-                      field: "uboId"
+                      errors:
+                        - code: "INVALID_UUID"
+                          message: "'not-a-uuid' cannot be converted to UUID"
+                          field: "path:uboId"
+                          params: {}
         "401":
-          description: Missing or invalid authentication token.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
+          $ref: "#/components/responses/UnauthorizedError"
         "404":
           description: Account or beneficial owner not found.
           content:
@@ -1799,18 +1768,6 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
               examples:
                 accountNotFound:
-                  summary: Account does not exist for the authenticated customer
-                  value:
-                    code: "RESOURCE_NOT_FOUND"
-                    message: "Account with id '5b7c1f2a-3d4e-4f8a-9b1c-2d3e4f5a6b7c' was not found"
-                    details:
-                      resource: "Account"
-                      id: "5b7c1f2a-3d4e-4f8a-9b1c-2d3e4f5a6b7c"
+                  $ref: "#/components/examples/AccountNotFound"
                 uboNotFound:
-                  summary: Beneficial owner does not exist on the account
-                  value:
-                    code: "RESOURCE_NOT_FOUND"
-                    message: "UBO with id 'a1b2c3d4-e5f6-7890-1234-567890abcdef' was not found"
-                    details:
-                      resource: "UBO"
-                      id: "a1b2c3d4-e5f6-7890-1234-567890abcdef"
+                  $ref: "#/components/examples/UboNotFound"
