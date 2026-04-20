@@ -793,15 +793,37 @@ components:
           required:
             - network
             - walletAddress
-    DocumentResponse:
+    UploadDocumentRequest:
       type: object
+      description: |
+        JSON payload accompanying the document file in the multipart request.
+        Sent as the `body` part with `Content-Type: application/json`.
       properties:
-        documentId:
+        documentType:
           type: string
-          description: Identifier of the uploaded document.
-          example: "doc-a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+          description: |
+            The type of document being uploaded. Must match a `documentType`
+            listed in the account's `requirements.currentlyDue` array.
+          enum:
+            - CNPJ_CERTIFICATE
+            - PROOF_OF_ADDRESS
+            - SOCIAL_CONTRACT
+            - IDENTITY_DOCUMENT
+          example: "CNPJ_CERTIFICATE"
+        documentSubType:
+          type: string
+          nullable: true
+          description: Optional sub-classification for the document, when applicable.
+        uboId:
+          type: string
+          format: uuid
+          nullable: true
+          description: |
+            Beneficial owner identifier. Include when the document fulfills a
+            UBO-level requirement; omit for account-level documents.
+          example: "a1b2c3d4-e5f6-7890-1234-567890abcdef"
       required:
-        - documentId
+        - documentType
     PageMetadata:
       type: object
       properties:
@@ -1226,14 +1248,19 @@ paths:
                 accountNotFound:
                   $ref: "#/components/examples/AccountNotFound"
 
-  # ── Account documents ────────────────────────────────────────────
+  # ── Documents ────────────────────────────────────────────────────
   /api/accounts/{accountId}/documents:
     post:
-      operationId: uploadAccountDocument
+      operationId: uploadDocument
       tags:
         - Documents
-      summary: Upload an account document
-      description: Uploads a document to fulfill a specific account requirement.
+      summary: Upload a document
+      description: |
+        Uploads a document to fulfill an account or beneficial owner requirement.
+
+        Use the same endpoint for both account-level documents and UBO-level
+        documents — set `uboId` in the JSON body when the document belongs to a
+        specific beneficial owner, otherwise omit it.
       parameters:
         - $ref: "#/components/parameters/AccountId"
         - $ref: "#/components/parameters/TraceVersion"
@@ -1245,24 +1272,21 @@ paths:
             schema:
               type: object
               properties:
-                requirementId:
-                  type: string
-                  format: uuid
-                  description: Identifier of the requirement being fulfilled.
+                body:
+                  $ref: "#/components/schemas/UploadDocumentRequest"
                 file:
                   type: string
                   format: binary
                   description: Document file content.
               required:
-                - requirementId
+                - body
                 - file
+            encoding:
+              body:
+                contentType: application/json
       responses:
-        "200":
+        "204":
           description: Document uploaded.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/DocumentResponse"
         "400":
           description: Invalid request or missing multipart fields.
           content:
@@ -1281,11 +1305,11 @@ paths:
                   summary: Required multipart field is missing
                   value:
                     code: "MISSING_MULTIPART_FIELD"
-                    message: "Missing required multipart field: fieldName=requirementId"
+                    message: "Missing required multipart field: fieldName=body"
                     details:
-                      fieldName: "requirementId"
+                      fieldName: "body"
                 invalidUuid:
-                  summary: accountId or requirementId is not a valid UUID
+                  summary: accountId or uboId is not a valid UUID
                   value:
                     code: "INVALID_DATA"
                     message: "Object contains invalid data"
@@ -1298,7 +1322,7 @@ paths:
         "401":
           $ref: "#/components/responses/UnauthorizedError"
         "404":
-          description: Account not found.
+          description: Account or beneficial owner not found.
           content:
             application/json:
               schema:
@@ -1306,8 +1330,10 @@ paths:
               examples:
                 accountNotFound:
                   $ref: "#/components/examples/AccountNotFound"
+                uboNotFound:
+                  $ref: "#/components/examples/UboNotFound"
         "422":
-          description: No matching requirement for the given requirement ID.
+          description: No matching requirement for the given document type.
           content:
             application/json:
               schema:
@@ -1688,86 +1714,3 @@ paths:
                     details:
                       uboId: "a1b2c3d4-e5f6-7890-1234-567890abcdef"
 
-  # ── UBO documents ────────────────────────────────────────────────
-  /api/accounts/{accountId}/ubos/{uboId}/documents:
-    post:
-      operationId: uploadUboDocument
-      tags:
-        - Documents
-      summary: Upload a UBO document
-      description: Uploads a document to fulfill a specific beneficial owner requirement.
-      parameters:
-        - $ref: "#/components/parameters/AccountId"
-        - $ref: "#/components/parameters/UboId"
-        - $ref: "#/components/parameters/TraceVersion"
-        - $ref: "#/components/parameters/IdempotencyKey"
-      requestBody:
-        required: true
-        content:
-          multipart/form-data:
-            schema:
-              type: object
-              properties:
-                requirementId:
-                  type: string
-                  format: uuid
-                  description: Identifier of the requirement being fulfilled.
-                file:
-                  type: string
-                  format: binary
-                  description: Document file content.
-              required:
-                - requirementId
-                - file
-      responses:
-        "200":
-          description: Document uploaded.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/DocumentResponse"
-        "400":
-          description: Invalid parameters or missing multipart fields.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              examples:
-                emptyFile:
-                  summary: Uploaded file is empty
-                  value:
-                    code: "EMPTY_FILE"
-                    message: "File must not be empty: fieldName=file"
-                    details:
-                      fieldName: "file"
-                missingMultipartField:
-                  summary: Required multipart field is missing
-                  value:
-                    code: "MISSING_MULTIPART_FIELD"
-                    message: "Missing required multipart field: fieldName=requirementId"
-                    details:
-                      fieldName: "requirementId"
-                invalidUuid:
-                  summary: accountId, uboId, or requirementId is not a valid UUID
-                  value:
-                    code: "INVALID_DATA"
-                    message: "Object contains invalid data"
-                    details:
-                      errors:
-                        - code: "INVALID_UUID"
-                          message: "'not-a-uuid' cannot be converted to UUID"
-                          field: "path:uboId"
-                          params: {}
-        "401":
-          $ref: "#/components/responses/UnauthorizedError"
-        "404":
-          description: Account or beneficial owner not found.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              examples:
-                accountNotFound:
-                  $ref: "#/components/examples/AccountNotFound"
-                uboNotFound:
-                  $ref: "#/components/examples/UboNotFound"

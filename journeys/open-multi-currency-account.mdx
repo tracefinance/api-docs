@@ -48,18 +48,18 @@ An account in Trace FX is multi-currency: every account includes crypto support 
     The response returns the account in `REQUESTED` status along with the document types required for onboarding. Fiat onboarding requires document uploads; crypto has none.
   </Step>
   <Step title="Upload required documents">
-    The creation response includes a `requirements.currentlyDue` array listing every document you need to provide. Each item has a `documentType` — use that as the multipart field name when uploading:
+    The creation response includes a `requirements.currentlyDue` array listing every document you need to provide. Each item has a `documentType` — send it in the JSON `body` part of the multipart request, alongside the file:
 
     ```bash
     curl --request POST \
       --url {{sandboxUrl}}/api/accounts/<account-id>/documents \
       --header 'Authorization: Bearer <token>' \
       --header 'X-Idempotency-Key: <unique-key>' \
-      --form 'CNPJ_CERTIFICATE=@/path/to/cnpj-certificate.pdf' \
-      --form 'PROOF_OF_ADDRESS=@/path/to/proof-of-address.pdf'
+      --form 'body={"documentType":"CNPJ_CERTIFICATE"};type=application/json' \
+      --form 'file=@/path/to/cnpj-certificate.pdf'
     ```
 
-    Returns `204 No Content`. You can send multiple documents in a single request. Upload every `documentType` listed in `currentlyDue` before proceeding.
+    Returns `204 No Content`. Upload one document per request, repeating for every `documentType` listed in `currentlyDue` before proceeding.
   </Step>
   <Step title="Add beneficial owners (company accounts)">
     Company-owned accounts require at least one beneficial owner (UBO). Register each UBO with their identity and address details:
@@ -87,14 +87,15 @@ An account in Trace FX is multi-currency: every account includes crypto support 
     The response includes the UBO's `id`, which you'll need for uploading their documents.
   </Step>
   <Step title="Upload UBO documents">
-    Each UBO needs identity documents. Upload them using the UBO's `id` in the path — the multipart field name is the `documentType`, same as account documents:
+    Each UBO needs identity documents. Use the same `/documents` endpoint as account documents — just include the UBO's `id` as `uboId` inside the JSON `body`:
 
     ```bash
     curl --request POST \
-      --url {{sandboxUrl}}/api/accounts/<account-id>/ubos/<ubo-id>/documents \
+      --url {{sandboxUrl}}/api/accounts/<account-id>/documents \
       --header 'Authorization: Bearer <token>' \
       --header 'X-Idempotency-Key: <unique-key>' \
-      --form 'IDENTITY_DOCUMENT=@/path/to/ubo-identity.pdf'
+      --form 'body={"documentType":"IDENTITY_DOCUMENT","uboId":"<ubo-id>"};type=application/json' \
+      --form 'file=@/path/to/ubo-identity.pdf'
     ```
 
     Returns `204 No Content`. Repeat for every UBO registered on the account.
