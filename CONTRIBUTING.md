@@ -113,7 +113,7 @@ Only create a snippet when the exact same content appears on multiple pages. Do 
 ## Adding a new endpoint
 
 1. Add the operation to `apis/{service}/openapi.yml`.
-2. Add the operation path to the relevant group in `docs.json` (e.g., `"POST /api/deposits"`).
+2. Add the operation path to the relevant group in `docs.json` (e.g., `"POST /api/operations/withdrawal"`).
 3. Run `mint dev` — verify the endpoint renders with a playground.
 4. Run `mint broken-links`.
 

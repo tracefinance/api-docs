@@ -15,7 +15,7 @@ Mutating endpoints (POST, PUT, PATCH) require the `X-Idempotency-Key` header. Th
 
 ```bash
 curl --request POST \
-  --url {{sandboxUrl}}/api/operations \
+  --url {{sandboxUrl}}/api/operations/withdrawal \
   --header 'Authorization: Bearer <token>' \
   --header 'X-Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000' \
   --header 'Content-Type: application/json' \
