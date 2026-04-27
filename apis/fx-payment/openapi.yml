@@ -958,10 +958,10 @@ components:
         - taxId
         - address
     FinancialAddress:
-      description: A payment route, discriminated by `rail`. Beneficiary payment instructions emit one of `PIX_KEY`, `PIX_MANUAL`, or `CRYPTO`; other rails appear in operation responses.
+      description: A payment route, discriminated by `rail`. Beneficiary payment instructions emit one of `PIX_KEY`, `PIX_BANK_INSTRUCTION`, or `CRYPTO`; other rails appear in operation responses.
       oneOf:
         - $ref: "#/components/schemas/PixKeyAddress"
-        - $ref: "#/components/schemas/PixManualAddress"
+        - $ref: "#/components/schemas/PixBankInstructionAddress"
         - $ref: "#/components/schemas/PixStaticQrCodeAddress"
         - $ref: "#/components/schemas/BoletoAddress"
         - $ref: "#/components/schemas/CryptoWalletAddress"
@@ -969,7 +969,7 @@ components:
         propertyName: rail
         mapping:
           PIX_KEY: "#/components/schemas/PixKeyAddress"
-          PIX_MANUAL: "#/components/schemas/PixManualAddress"
+          PIX_BANK_INSTRUCTION: "#/components/schemas/PixBankInstructionAddress"
           PIX_STATIC_QR_CODE: "#/components/schemas/PixStaticQrCodeAddress"
           BOLETO: "#/components/schemas/BoletoAddress"
           CRYPTO: "#/components/schemas/CryptoWalletAddress"
@@ -998,14 +998,14 @@ components:
         - rail
         - dictKeyType
         - dictKey
-    PixManualAddress:
+    PixBankInstructionAddress:
       type: object
       description: PIX route via bank-account details (no DICT key).
       properties:
         rail:
           type: string
           enum:
-            - PIX_MANUAL
+            - PIX_BANK_INSTRUCTION
         bankCode:
           type: string
           description: Bank code (ISPB or COMPE).
@@ -1085,7 +1085,7 @@ components:
         - address
     PaymentInstructionResponse:
       type: object
-      description: A payment instruction on a beneficiary. Use `address.rail` to discriminate routing details — for beneficiary instructions it is one of `PIX_KEY`, `PIX_MANUAL`, or `CRYPTO`.
+      description: A payment instruction on a beneficiary. Use `address.rail` to discriminate routing details — for beneficiary instructions it is one of `PIX_KEY`, `PIX_BANK_INSTRUCTION`, or `CRYPTO`.
       properties:
         id:
           type: string
