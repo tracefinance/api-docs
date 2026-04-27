@@ -115,11 +115,16 @@
             "group": "Operations",
             "icon": "arrows-rotate",
             "pages": [
-              "api-reference/fx-payment/operations/create-deposit",
               "api-reference/fx-payment/operations/create-withdrawal",
-              "api-reference/fx-payment/operations/create-swap",
               "api-reference/fx-payment/operations/get-operation",
-              "api-reference/fx-payment/operations/list-operations"
+              "api-reference/fx-payment/operations/list-operations",
+              {
+                "group": "Quotes",
+                "icon": "scale-balanced",
+                "pages": [
+                  "api-reference/fx-payment/operations/quotes/create-quote"
+                ]
+              }
             ]
           },
           {
