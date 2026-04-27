@@ -52,7 +52,7 @@ components:
         type: string
         example: "1"
     IdempotencyKey:
-      name: Idempotency-Key
+      name: X-Idempotency-Key
       in: header
       required: false
       description: Unique key to ensure idempotent request processing.
@@ -126,9 +126,7 @@ components:
       type: object
       properties:
         code:
-          type: string
-          description: ISO 4217 currency code or stablecoin ticker.
-          example: "BRL"
+          $ref: "#/components/schemas/Currency"
         isVirtual:
           type: boolean
           description: Whether this is a virtual (non-custodial) asset.
@@ -158,9 +156,7 @@ components:
           description: Registered legal name of the company.
           example: "Acme Ltda"
         taxId:
-          type: string
-          description: CNPJ of the company.
-          example: "12345678000101"
+          $ref: "#/components/schemas/TaxIdRequest"
         industry:
           type: string
           description: Industry classification.
@@ -196,6 +192,12 @@ components:
             - WHOLESALE
             - OTHERS
           example: "INFORMATION_TECHNOLOGY"
+        incorporateDate:
+          type: string
+          format: date
+          nullable: true
+          description: Company incorporation date in ISO format (yyyy-MM-dd). Optional.
+          example: "2018-05-12"
         address:
           $ref: "#/components/schemas/AddressRequest"
       required:
@@ -220,9 +222,13 @@ components:
           description: Last name of the individual.
           example: "Silva"
         taxId:
+          $ref: "#/components/schemas/TaxIdRequest"
+        birthDate:
           type: string
-          description: CPF of the individual.
-          example: "12345678900"
+          format: date
+          nullable: true
+          description: Date of birth in ISO format (yyyy-MM-dd). Optional.
+          example: "1990-03-21"
         address:
           $ref: "#/components/schemas/AddressRequest"
       required:
@@ -231,6 +237,22 @@ components:
         - lastName
         - taxId
         - address
+    TaxIdRequest:
+      type: object
+      description: Tax identifier for the owner or beneficial owner. Validated against the country and type.
+      properties:
+        value:
+          type: string
+          description: Tax identifier digits or alphanumeric value (depending on type).
+          example: "11222333000181"
+        type:
+          $ref: "#/components/schemas/TaxIdType"
+        country:
+          $ref: "#/components/schemas/Country"
+      required:
+        - value
+        - type
+        - country
     AddressRequest:
       type: object
       properties:
@@ -248,9 +270,7 @@ components:
           type: string
           example: "SP"
         country:
-          type: string
-          description: ISO 3166-1 alpha-2 country code.
-          example: "BR"
+          $ref: "#/components/schemas/Country"
         postalCode:
           type: string
           example: "01234-567"
@@ -269,9 +289,7 @@ components:
           description: Full legal name of the beneficial owner.
           example: "João Silva"
         taxId:
-          type: string
-          description: CPF or CNPJ of the beneficial owner.
-          example: "12345678900"
+          $ref: "#/components/schemas/TaxIdRequest"
         address:
           $ref: "#/components/schemas/AddressRequest"
         ownershipPercentage:
@@ -293,9 +311,7 @@ components:
           description: Full legal name of the beneficial owner.
           example: "João Silva"
         taxId:
-          type: string
-          description: CPF or CNPJ of the beneficial owner.
-          example: "12345678900"
+          $ref: "#/components/schemas/TaxIdRequest"
         address:
           $ref: "#/components/schemas/AddressRequest"
         ownershipPercentage:
@@ -323,6 +339,11 @@ components:
           $ref: "#/components/schemas/CustomerResponse"
         owner:
           $ref: "#/components/schemas/OwnerResponse"
+        assets:
+          type: array
+          description: Assets enabled on the account, with the onboarding status of the underlying provider account.
+          items:
+            $ref: "#/components/schemas/AssetResponse"
         requirements:
           $ref: "#/components/schemas/RequirementsResponse"
         tags:
@@ -348,12 +369,37 @@ components:
         - id
         - customer
         - owner
+        - assets
         - requirements
         - tags
         - currentState
         - states
         - createdAt
         - updatedAt
+    AssetResponse:
+      type: object
+      description: An asset available on the account and the onboarding status of its underlying provider account.
+      properties:
+        currency:
+          $ref: "#/components/schemas/Currency"
+        allowsVirtualAccounts:
+          type: boolean
+          description: Whether virtual accounts can be issued for this asset.
+          example: false
+        status:
+          type: string
+          description: Onboarding status of the provider account that custodies this asset.
+          enum:
+            - ONBOARDING
+            - ACTIVE
+            - FAILED
+            - FROZEN
+            - DEACTIVATED
+          example: "ONBOARDING"
+      required:
+        - currency
+        - allowsVirtualAccounts
+        - status
     CustomerResponse:
       type: object
       properties:
@@ -384,8 +430,7 @@ components:
           type: string
           example: "Acme Ltda"
         taxId:
-          type: string
-          example: "12345678000101"
+          $ref: "#/components/schemas/TaxIdResponse"
         industry:
           type: string
           example: "INFORMATION_TECHNOLOGY"
@@ -416,8 +461,7 @@ components:
           type: string
           example: "Silva"
         taxId:
-          type: string
-          example: "12345678900"
+          $ref: "#/components/schemas/TaxIdResponse"
         address:
           $ref: "#/components/schemas/AddressResponse"
       required:
@@ -426,6 +470,21 @@ components:
         - lastName
         - taxId
         - address
+    TaxIdResponse:
+      type: object
+      description: Tax identifier returned for an owner or beneficial owner.
+      properties:
+        value:
+          type: string
+          example: "11222333000181"
+        type:
+          $ref: "#/components/schemas/TaxIdType"
+        country:
+          $ref: "#/components/schemas/Country"
+      required:
+        - value
+        - type
+        - country
     AddressResponse:
       type: object
       properties:
@@ -444,9 +503,7 @@ components:
           nullable: true
           example: "SP"
         country:
-          type: string
-          description: ISO 3166-1 alpha-2 country code.
-          example: "BR"
+          $ref: "#/components/schemas/Country"
         postalCode:
           type: string
           example: "01234-567"
@@ -522,7 +579,7 @@ components:
         - details
     RequirementsResponse:
       type: object
-      description: "Stripe-style requirement buckets grouped by lifecycle stage."
+      description: Requirement buckets grouped by lifecycle stage.
       properties:
         currentlyDue:
           type: array
@@ -551,33 +608,205 @@ components:
         - satisfied
     RequirementResponse:
       type: object
-      description: A single requirement. Currently only `DOCUMENT` type is supported.
+      description: |
+        A single requirement. The `type` discriminates between two shapes:
+        - `DOCUMENT`: a specific document of a given `documentType` is required.
+        - `DOCUMENT_GROUP`: any one document from `options` will satisfy the
+          requirement (e.g., proof of identity can be ID card, passport, or
+          driver's license).
       properties:
         type:
           type: string
           description: Requirement type discriminator.
           enum:
             - DOCUMENT
+            - DOCUMENT_GROUP
           example: "DOCUMENT"
         documentType:
-          type: string
+          allOf:
+            - $ref: "#/components/schemas/DocumentType"
           nullable: true
-          description: The type of document required.
-          enum:
-            - CNPJ_CERTIFICATE
-            - PROOF_OF_ADDRESS
-            - SOCIAL_CONTRACT
-            - IDENTITY_DOCUMENT
-          example: "CNPJ_CERTIFICATE"
+          description: The specific document type required. Set when `type` is `DOCUMENT`.
+        documentSubType:
+          allOf:
+            - $ref: "#/components/schemas/DocumentSubType"
+          nullable: true
+          description: |
+            Sub-classification of the document. Set when the `documentType`
+            requires a specific side (e.g., `FRONT_SIDE` for `ID_CARD`).
+        group:
+          allOf:
+            - $ref: "#/components/schemas/RequirementGroup"
+          nullable: true
+          description: Group identifier. Set when `type` is `DOCUMENT_GROUP`.
+        options:
+          type: array
+          nullable: true
+          description: Acceptable document types. Set when `type` is `DOCUMENT_GROUP`.
+          items:
+            $ref: "#/components/schemas/DocumentType"
         uboId:
           type: string
           format: uuid
           nullable: true
-          description: UBO identifier if this requirement belongs to a beneficial owner.
+          description: UBO identifier when the requirement belongs to a beneficial owner. `null` for account-level requirements.
+        requiredMetadata:
+          type: array
+          nullable: true
+          description: Metadata keys that must accompany the document upload (e.g., `country`, `number`).
+          items:
+            type: string
+          example: ["country"]
+        metadata:
+          type: object
+          nullable: true
+          additionalProperties:
+            type: string
+          description: Metadata captured for an already-fulfilled requirement.
         reason:
           $ref: "#/components/schemas/Reason"
       required:
         - type
+    DocumentType:
+      type: string
+      description: Type of document.
+      enum:
+        - PASSPORT
+        - ARTICLES_OF_ASSOCIATION
+        - OTHER
+        - AGREEMENT
+        - DIRECTORS_REGISTRY
+        - INCORPORATION_ARTICLES
+        - INCORPORATION_CERT
+        - PROOF_OF_ADDRESS
+        - SHAREHOLDER_REGISTRY
+        - POWER_OF_ATTORNEY
+        - STATE_REGISTRY
+        - EVIDENCE_OF_SOURCE_OF_FUNDS
+        - EVIDENCE_OF_SOURCE_OF_WEALTH
+        - PROOF_OF_REGULATORY_LICENSE
+        - PROOF_OF_BUSINESS_ACTIVITY
+        - FUND_FLOW_EXPLANATION
+        - AML_POLICY
+        - FINANCIAL_STATEMENT
+        - ORGANIZATIONAL_CHART
+        - SHAREHOLDER_OWNERSHIP
+        - WOLFSBERG_QUESTIONNAIRE
+        - ID_CARD
+        - DRIVER_LICENSE
+        - RESIDENCE_PERMIT
+        - SELFIE
+        - UTILITY_BILL
+      example: "ARTICLES_OF_ASSOCIATION"
+    DocumentSubType:
+      type: string
+      description: Sub-classification for documents that have multiple sides.
+      enum:
+        - FRONT_SIDE
+        - BACK_SIDE
+      example: "FRONT_SIDE"
+    RequirementGroup:
+      type: string
+      description: Logical group of document types that satisfy the same requirement.
+      enum:
+        - IDENTITY_VERIFICATION
+      example: "IDENTITY_VERIFICATION"
+    Currency:
+      type: string
+      description: Fiat or crypto currency code.
+      enum:
+        - USD
+        - BRL
+        - EUR
+        - CAD
+        - AUD
+        - GBP
+        - MXN
+        - HKD
+        - SGD
+        - PHP
+        - NZD
+        - CHF
+        - NOK
+        - DKK
+        - PLN
+        - SEK
+        - USDC
+        - USDT
+        - EURC
+        - BRLT
+      example: "BRL"
+    TaxIdType:
+      type: string
+      description: |
+        Country-specific tax identifier type. The `country` field on the same
+        TaxId object must match the country implied by the type.
+      enum:
+        - CPF
+        - CNPJ
+        - CUIT
+        - CUIL
+        - RUT_CL
+        - RUT_UY
+        - CI_UY
+        - RUC
+        - DNI_PE
+        - NIT
+        - CC
+        - RFC
+        - RUC_PY
+        - CI_PY
+        - NIPC
+        - NIF_PT
+        - CIF
+        - NIF_ES
+        - NIE
+        - SIREN
+        - SIRET
+        - NIF_FR
+        - PARTITA_IVA
+        - CODICE_FISCALE
+        - UST_IDNR
+        - STEUER_ID
+        - KVK
+        - BSN
+        - BCE
+        - NN_BE
+        - ORGANISATIONSNUMMER
+        - PERSONNUMMER
+        - ORGANISASJONSNUMMER
+        - FODSELSNUMMER
+        - UID_CH
+        - AHV
+        - VAT_GB
+        - NIN
+        - EIN
+        - SSN
+        - ITIN
+        - BN_CA
+        - SIN
+        - ABN
+        - TFN
+        - USCC
+        - CORPORATE_NUMBER_JP
+        - MY_NUMBER
+        - BRN_KR
+        - RRN
+        - GSTIN
+        - PAN
+        - INN_RU
+        - COMPANY_NUMBER_IL
+        - TEUDAT_ZEHUT
+        - TRADE_LICENSE
+        - EMIRATES_ID
+        - CIPC
+        - SA_ID
+      example: "CNPJ"
+    Country:
+      type: string
+      pattern: "^[A-Z]{2}$"
+      description: ISO 3166-1 alpha-2 country code.
+      example: "BR"
     TagResponse:
       type: object
       properties:
@@ -599,8 +828,7 @@ components:
           type: string
           example: "João Silva"
         taxId:
-          type: string
-          example: "12345678900"
+          $ref: "#/components/schemas/TaxIdResponse"
         address:
           $ref: "#/components/schemas/AddressResponse"
         ownershipPercentage:
@@ -636,9 +864,7 @@ components:
       type: object
       properties:
         asset:
-          type: string
-          description: Currency code for this funding instruction.
-          example: "BRL"
+          $ref: "#/components/schemas/Currency"
         type:
           type: string
           description: Funding instruction type discriminator.
@@ -800,30 +1026,56 @@ components:
         Sent as the `body` part with `Content-Type: application/json`.
       properties:
         documentType:
-          type: string
+          allOf:
+            - $ref: "#/components/schemas/DocumentType"
           description: |
             The type of document being uploaded. Must match a `documentType`
-            listed in the account's `requirements.currentlyDue` array.
-          enum:
-            - CNPJ_CERTIFICATE
-            - PROOF_OF_ADDRESS
-            - SOCIAL_CONTRACT
-            - IDENTITY_DOCUMENT
-          example: "CNPJ_CERTIFICATE"
+            listed in the account's `requirements.currentlyDue` array (or, for
+            grouped requirements, appear in `options`).
         documentSubType:
-          type: string
-          nullable: true
-          description: Optional sub-classification for the document, when applicable.
-        uboId:
-          type: string
-          format: uuid
+          allOf:
+            - $ref: "#/components/schemas/DocumentSubType"
           nullable: true
           description: |
-            Beneficial owner identifier. Include when the document fulfills a
-            UBO-level requirement; omit for account-level documents.
-          example: "a1b2c3d4-e5f6-7890-1234-567890abcdef"
+            Sub-classification of the document. Required for document types
+            that have sides (e.g., `ID_CARD`, `DRIVER_LICENSE`).
+        holder:
+          $ref: "#/components/schemas/HolderRequest"
+        metadata:
+          type: object
+          nullable: true
+          additionalProperties:
+            type: string
+          description: |
+            Additional metadata required by the document type. Keys must match
+            the `requiredMetadata` listed on the requirement (e.g., `country`,
+            `number`).
+          example:
+            country: "BR"
       required:
         - documentType
+        - holder
+    HolderRequest:
+      type: object
+      description: |
+        Identifies who the document belongs to. Use `ACCOUNT` with the account
+        ID for account-level documents, or `UBO` with the UBO ID for documents
+        belonging to a specific beneficial owner.
+      properties:
+        type:
+          type: string
+          enum:
+            - ACCOUNT
+            - UBO
+          example: "ACCOUNT"
+        referenceId:
+          type: string
+          format: uuid
+          description: Account ID when `type=ACCOUNT`; UBO ID when `type=UBO`.
+          example: "a1b2c3d4-5e6f-7890-abcd-ef1234567890"
+      required:
+        - type
+        - referenceId
     PageMetadata:
       type: object
       properties:
@@ -932,8 +1184,12 @@ paths:
                   owner:
                     type: "COMPANY"
                     legalName: "Acme Ltda"
-                    taxId: "12345678000101"
+                    taxId:
+                      value: "11222333000181"
+                      type: "CNPJ"
+                      country: "BR"
                     industry: "INFORMATION_TECHNOLOGY"
+                    incorporateDate: "2018-05-12"
                     address:
                       addressLine1: "Rua das Flores, 100"
                       addressLine2: "Suite 456"
@@ -951,7 +1207,11 @@ paths:
                     type: "INDIVIDUAL"
                     firstName: "Maria"
                     lastName: "Silva"
-                    taxId: "12345678900"
+                    taxId:
+                      value: "12345678909"
+                      type: "CPF"
+                      country: "BR"
+                    birthDate: "1990-03-21"
                     address:
                       addressLine1: "Rua das Flores, 100"
                       city: "São Paulo"
@@ -973,12 +1233,16 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
               examples:
                 invalidTaxId:
-                  summary: Owner taxId length is not 11 (individual) or 14 (company)
+                  summary: Owner taxId fails the country/type-specific validator
                   value:
-                    code: "INVALID_TAX_ID"
-                    message: "TaxId must be 11 or 14 characters"
+                    code: "INVALID_DATA"
+                    message: "Object contains invalid data"
                     details:
-                      taxIdLength: 10
+                      errors:
+                        - code: "VALIDATE_TAX_ID"
+                          message: "Tax ID is invalid for the given type and country"
+                          field: "body:owner.taxId.value"
+                          params: {}
                 unsupportedAsset:
                   summary: Requested asset code is not supported
                   value:
@@ -1170,10 +1434,10 @@ paths:
                     details:
                       accountId: "5b7c1f2a-3d4e-4f8a-9b1c-2d3e4f5a6b7c"
                       missingDocumentTypes:
-                        - "COMPANY_ARTICLES_OF_INCORPORATION"
-                        - "COMPANY_PROOF_OF_ADDRESS"
+                        - "ARTICLES_OF_ASSOCIATION"
+                        - "PROOF_OF_ADDRESS"
                 missingUboVerification:
-                  summary: Company account has no verified UBOs
+                  summary: Company account has no approved UBOs
                   value:
                     code: "MISSING_DOCUMENTS_FOR_REVIEW"
                     message: "Not all documents uploaded for review submission"
@@ -1249,7 +1513,7 @@ paths:
                   $ref: "#/components/examples/AccountNotFound"
 
   # ── Documents ────────────────────────────────────────────────────
-  /api/accounts/{accountId}/documents:
+  /api/documents:
     post:
       operationId: uploadDocument
       tags:
@@ -1258,11 +1522,10 @@ paths:
       description: |
         Uploads a document to fulfill an account or beneficial owner requirement.
 
-        Use the same endpoint for both account-level documents and UBO-level
-        documents — set `uboId` in the JSON body when the document belongs to a
-        specific beneficial owner, otherwise omit it.
+        The same endpoint serves account-level and UBO-level documents — set
+        `holder.type` to `ACCOUNT` with the account ID, or to `UBO` with the
+        beneficial owner ID, in the JSON `body` part.
       parameters:
-        - $ref: "#/components/parameters/AccountId"
         - $ref: "#/components/parameters/TraceVersion"
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -1284,6 +1547,26 @@ paths:
             encoding:
               body:
                 contentType: application/json
+            examples:
+              accountDocument:
+                summary: Account-level document (e.g., articles of association)
+                value:
+                  body:
+                    documentType: "ARTICLES_OF_ASSOCIATION"
+                    holder:
+                      type: "ACCOUNT"
+                      referenceId: "5b7c1f2a-3d4e-4f8a-9b1c-2d3e4f5a6b7c"
+              uboIdentity:
+                summary: UBO identity document with sub-type and metadata
+                value:
+                  body:
+                    documentType: "ID_CARD"
+                    documentSubType: "FRONT_SIDE"
+                    holder:
+                      type: "UBO"
+                      referenceId: "a1b2c3d4-e5f6-7890-1234-567890abcdef"
+                    metadata:
+                      country: "BR"
       responses:
         "204":
           description: Document uploaded.
@@ -1308,8 +1591,23 @@ paths:
                     message: "Missing required multipart field: fieldName=body"
                     details:
                       fieldName: "body"
-                invalidUuid:
-                  summary: accountId or uboId is not a valid UUID
+                fileTooLarge:
+                  summary: Uploaded file exceeds the maximum allowed size
+                  value:
+                    code: "FILE_TOO_LARGE"
+                    message: "File size exceeds the maximum allowed"
+                    details:
+                      fileSizeBytes: 12000000
+                      maxSizeBytes: 10000000
+                unsupportedFileType:
+                  summary: Uploaded file type is not allowed
+                  value:
+                    code: "UNSUPPORTED_FILE_TYPE"
+                    message: "Unsupported file type"
+                    details:
+                      detected: "EXECUTABLE"
+                invalidReferenceId:
+                  summary: holder.referenceId is not a valid UUID
                   value:
                     code: "INVALID_DATA"
                     message: "Object contains invalid data"
@@ -1317,7 +1615,7 @@ paths:
                       errors:
                         - code: "INVALID_UUID"
                           message: "'not-a-uuid' cannot be converted to UUID"
-                          field: "path:accountId"
+                          field: "body:holder.referenceId"
                           params: {}
         "401":
           $ref: "#/components/responses/UnauthorizedError"
@@ -1332,12 +1630,6 @@ paths:
                   $ref: "#/components/examples/AccountNotFound"
                 uboNotFound:
                   $ref: "#/components/examples/UboNotFound"
-        "422":
-          description: No matching requirement for the given document type.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
 
   # ── Beneficial owner endpoints ───────────────────────────────────
   /api/accounts/{accountId}/ubos:
@@ -1362,7 +1654,10 @@ paths:
                 summary: Add a UBO
                 value:
                   name: "João Silva"
-                  taxId: "12345678900"
+                  taxId:
+                    value: "12345678909"
+                    type: "CPF"
+                    country: "BR"
                   address:
                     addressLine1: "Rua das Flores, 100"
                     city: "São Paulo"
@@ -1385,12 +1680,16 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
               examples:
                 invalidTaxId:
-                  summary: UBO taxId length is not 11 (individual) or 14 (company)
+                  summary: UBO taxId fails the country/type-specific validator
                   value:
-                    code: "INVALID_TAX_ID"
-                    message: "TaxId must be 11 or 14 characters"
+                    code: "INVALID_DATA"
+                    message: "Object contains invalid data"
                     details:
-                      taxIdLength: 10
+                      errors:
+                        - code: "VALIDATE_TAX_ID"
+                          message: "Tax ID is invalid for the given type and country"
+                          field: "body:taxId.value"
+                          params: {}
                 invalidData:
                   summary: Request body failed validation
                   value:
@@ -1570,7 +1869,10 @@ paths:
                 summary: Update all fields
                 value:
                   name: "João Carlos Silva"
-                  taxId: "98765432100"
+                  taxId:
+                    value: "98765432100"
+                    type: "CPF"
+                    country: "BR"
                   address:
                     addressLine1: "Av. Paulista, 1000"
                     city: "São Paulo"
@@ -1593,12 +1895,16 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
               examples:
                 invalidTaxId:
-                  summary: UBO taxId length is not 11 (individual) or 14 (company)
+                  summary: UBO taxId fails the country/type-specific validator
                   value:
-                    code: "INVALID_TAX_ID"
-                    message: "TaxId must be 11 or 14 characters"
+                    code: "INVALID_DATA"
+                    message: "Object contains invalid data"
                     details:
-                      taxIdLength: 10
+                      errors:
+                        - code: "VALIDATE_TAX_ID"
+                          message: "Tax ID is invalid for the given type and country"
+                          field: "body:taxId.value"
+                          params: {}
                 invalidData:
                   summary: Request body failed validation
                   value:

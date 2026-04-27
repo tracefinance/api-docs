@@ -117,14 +117,14 @@
             "pages": [
               "api-reference/fx-payment/operations/create-withdrawal",
               "api-reference/fx-payment/operations/get-operation",
-              "api-reference/fx-payment/operations/list-operations",
-              {
-                "group": "Quotes",
-                "icon": "scale-balanced",
-                "pages": [
-                  "api-reference/fx-payment/operations/quotes/create-quote"
-                ]
-              }
+              "api-reference/fx-payment/operations/list-operations"
+            ]
+          },
+          {
+            "group": "Quotes",
+            "icon": "scale-balanced",
+            "pages": [
+              "api-reference/fx-payment/operations/quotes/create-quote"
             ]
           },
           {

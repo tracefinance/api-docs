@@ -352,7 +352,7 @@ components:
           $ref: "#/components/schemas/AccountReference"
         sourceAmount:
           $ref: "#/components/schemas/AmountResponse"
-        destinationAmount:
+        targetAmount:
           $ref: "#/components/schemas/AmountResponse"
         spotRate:
           $ref: "#/components/schemas/SpotRate"
@@ -365,7 +365,7 @@ components:
         - customerId
         - account
         - sourceAmount
-        - destinationAmount
+        - targetAmount
         - spotRate
         - expiresAt
 
@@ -523,7 +523,7 @@ components:
           $ref: "#/components/schemas/AccountReference"
         sourceAmount:
           $ref: "#/components/schemas/AmountResponse"
-        destinationAmount:
+        targetAmount:
           $ref: "#/components/schemas/AmountResponse"
         intent:
           $ref: "#/components/schemas/OperationIntent"
@@ -555,7 +555,7 @@ components:
         - customerId
         - account
         - sourceAmount
-        - destinationAmount
+        - targetAmount
         - intent
         - quote
         - fees
@@ -857,7 +857,7 @@ components:
           description: Blockchain network (e.g., `ETHEREUM`, `TRON`, `SOLANA`).
         walletAddress:
           type: string
-          description: Destination wallet address on `network`.
+          description: Wallet address on `network`.
       required:
         - id
         - asset
@@ -1311,7 +1311,7 @@ paths:
                       decimalValue: "500.00"
                       asset: "BRL"
                       decimals: 2
-                    destinationAmount:
+                    targetAmount:
                       value: 50000
                       decimalValue: "500.00"
                       asset: "BRL"
@@ -1568,7 +1568,7 @@ paths:
                       decimalValue: "500.00"
                       asset: "BRL"
                       decimals: 2
-                    destinationAmount:
+                    targetAmount:
                       value: 100000000
                       decimalValue: "100.000000"
                       asset: "USDT"
@@ -1591,7 +1591,7 @@ paths:
                       decimalValue: "500.00"
                       asset: "BRL"
                       decimals: 2
-                    destinationAmount:
+                    targetAmount:
                       value: 50000
                       decimalValue: "500.00"
                       asset: "BRL"
