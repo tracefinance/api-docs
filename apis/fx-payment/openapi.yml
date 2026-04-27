@@ -354,7 +354,7 @@ components:
           $ref: "#/components/schemas/AmountResponse"
         targetAmount:
           $ref: "#/components/schemas/AmountResponse"
-        rate:
+        effectiveRate:
           $ref: "#/components/schemas/Rate"
         expiresAt:
           type: string
@@ -366,7 +366,7 @@ components:
         - account
         - sourceAmount
         - targetAmount
-        - rate
+        - effectiveRate
         - expiresAt
 
     # ── Operation schemas ─────────────────────────────────────────────
@@ -905,7 +905,7 @@ components:
           type: string
           format: uuid
           description: Quote identifier.
-        rate:
+        effectiveRate:
           $ref: "#/components/schemas/Rate"
         expiresAt:
           type: string
@@ -917,7 +917,7 @@ components:
           description: Time the quote was consumed by this operation.
       required:
         - id
-        - rate
+        - effectiveRate
         - expiresAt
         - consumedAt
 
@@ -1356,7 +1356,7 @@ paths:
                           key: "12345678901"
                     quote:
                       id: "d4e5f6a7-b8c9-0123-defa-2345678901bc"
-                      rate:
+                      effectiveRate:
                         value: "1.00"
                         base: "BRL"
                         quote: "BRL"
@@ -1579,7 +1579,7 @@ paths:
                       decimalValue: "100.000000"
                       asset: "USDT"
                       decimals: 6
-                    rate:
+                    effectiveRate:
                       value: "0.20"
                       base: "BRL"
                       quote: "USDT"
@@ -1602,7 +1602,7 @@ paths:
                       decimalValue: "500.00"
                       asset: "BRL"
                       decimals: 2
-                    rate:
+                    effectiveRate:
                       value: "1.00"
                       base: "BRL"
                       quote: "BRL"
