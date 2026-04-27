@@ -1,54 +1,77 @@
 ---
 title: "Make a deposit"
-description: "How to create a deposit and track it through to completion."
+description: "Step-by-step guide to crediting an account using PIX, TED, Boleto, or a crypto wallet."
 ---
 
 ## Overview
 
-Deposits fund an account with BRL (via PIX or bank transfer) or crypto (via blockchain transfer). There are two flows depending on whether you initiate the deposit through the API first or the funds arrive first.
+Deposits credit an account when funds arrive via the chosen funding rail. The customer creates a deposit operation referencing a quote and a rail; the response returns the concrete funding instruction (PIX key, boleto barcode, TED account, or crypto wallet) the customer uses to send money in. The deposit transitions to `COMPLETED` once the inbound payment is reconciled.
 
 ## Prerequisites
 
-- An [active account](/journeys/open-multi-currency-account) to deposit into.
+- An [active account](/journeys/open-multi-currency-account) configured for the asset to be credited.
 - Valid [authentication credentials](/guides/authentication).
 
 ## Steps
 
-### Intent-first flow
-
-Use this when you create the deposit intent before the funds arrive.
-
 <Steps>
-  <Step title="Create a deposit intent">
+  <Step title="Create a quote">
+    Quotes lock the FX rate (or a 1:1 spot for same-asset) for a short window and are bound to one account. Use `sourceAsset` for what the customer will send and `targetAsset` for what gets credited.
+
+    ```bash
+    curl --request POST \
+      --url {{sandboxUrl}}/api/quotes \
+      --header 'Authorization: Bearer <token>' \
+      --header 'X-Idempotency-Key: <unique-key>' \
+      --header 'Content-Type: application/json' \
+      --data '{
+        "accountId": "<account-id>",
+        "sourceAsset": "BRL",
+        "targetAsset": "BRL",
+        "sourceAmount": "500.00"
+      }'
+    ```
+
+    The response returns the quote `id`, the locked `effectiveRate`, and `expiresAt`. The quote can be consumed by exactly one operation before it expires.
+  </Step>
+
+  <Step title="Create the deposit">
+    Reference the account, the quote, and pick which funding rail the customer will use to send the money in.
+
     ```bash
     curl --request POST \
       --url {{sandboxUrl}}/api/operations/deposit \
       --header 'Authorization: Bearer <token>' \
-
       --header 'X-Idempotency-Key: <unique-key>' \
       --header 'Content-Type: application/json' \
       --data '{
-        "type": "DEPOSIT",
         "accountId": "<account-id>",
-        "amount": {
-          "value": 500000,
-          "asset": "BRL"
+        "quoteId": "<quote-id>",
+        "fundingInstruction": {
+          "rail": "PIX_KEY"
         }
       }'
     ```
 
-    The operation is created in `PENDING` status.
+    Returns `201` with the operation in `REQUESTED` status. The response carries `intent.fundingInstruction` with the concrete details for the chosen rail — for `PIX_KEY` that's the `keyType` and `key` to pay; for `BOLETO` it's the `barcode` and `dueDate`; for `TED` the bank, branch, and account number; for `CRYPTO` the network and wallet address.
   </Step>
+
+  <Step title="Send the funds">
+    Use the `intent.fundingInstruction` from the previous step to make the inbound payment via the chosen rail. The amount must match the quote's `sourceAmount`.
+  </Step>
+
   <Step title="Track the deposit">
-    Listen for `operation.created`, `operation.completed`, and `operation.failed` webhook events as the deposit progresses.
+    Poll `GET /api/operations/{operationId}` or subscribe to webhook events. Once the inbound payment is reconciled, the operation transitions to `COMPLETED`.
+
+    ```bash
+    curl --request GET \
+      --url {{sandboxUrl}}/api/operations/<operation-id> \
+      --header 'Authorization: Bearer <token>'
+    ```
   </Step>
 </Steps>
 
-### Money-first flow
-
-When funds arrive at the account before an explicit deposit intent is created, the platform automatically creates the operation and notifies you via webhook events.
-
 ## What happens next
 
-- [Make a withdrawal](/journeys/withdrawal) — move funds out of the account.
-- [Execute a swap](/journeys/swap) — convert between currencies.
+- [Execute a swap](/journeys/swap) — convert the deposited asset within the account.
+- [Make a withdrawal](/journeys/withdrawal) — send funds out.

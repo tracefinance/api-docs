@@ -1,63 +1,106 @@
 ---
 title: "Make a withdrawal"
-description: "How to create a withdrawal and handle the review process."
+description: "Step-by-step guide to sending funds from an account to a registered beneficiary."
 ---
 
 ## Overview
 
-Withdrawals move funds from an account to an external destination — a bank account (via TED or PIX) or a crypto wallet. Some withdrawals go through a compliance review before being processed.
+Withdrawals move funds out of an account to an external destination — a bank account (PIX, TED) or a crypto wallet. Every withdrawal references a quote that locks the FX rate (or a 1:1 spot for same-asset) and a previously approved beneficiary with at least one payment instruction.
 
 ## Prerequisites
 
-- An [active account](/journeys/open-multi-currency-account) with sufficient balance.
-- A registered **beneficiary** for the destination (bank account or wallet).
+- An [active account](/journeys/open-multi-currency-account) with sufficient balance in the quote's source asset.
 - Valid [authentication credentials](/guides/authentication).
 
 ## Steps
 
 <Steps>
-  <Step title="Register a beneficiary (if needed)">
-    Before withdrawing to a new destination, register the beneficiary:
+  <Step title="Register a beneficiary (one time per destination)">
+    Submit the holder details and the payment instruction (PIX, bank account, or crypto wallet). The beneficiary starts in `PENDING_REVIEW` status and transitions asynchronously to `APPROVED` or `REJECTED` after compliance review.
 
     ```bash
     curl --request POST \
       --url {{sandboxUrl}}/api/beneficiaries \
       --header 'Authorization: Bearer <token>' \
-
       --header 'X-Idempotency-Key: <unique-key>' \
       --header 'Content-Type: application/json' \
       --data '{
-        "name": "Beneficiary Name",
-        "type": "BANK_ACCOUNT"
+        "holder": {
+          "type": "INDIVIDUAL",
+          "firstName": "John",
+          "lastName": "Doe",
+          "taxId": "12345678901",
+          "dateOfBirth": "1990-01-15"
+        },
+        "paymentInstruction": {
+          "type": "PIX",
+          "pixKeyType": "CPF",
+          "pixKey": "12345678901"
+        }
       }'
     ```
 
-    Wait for the `beneficiary.approved` webhook event before proceeding. The beneficiary may be rejected during compliance review.
+    The response returns the beneficiary with its `id` and the created `paymentInstruction.id`. Wait until status is `APPROVED` before continuing — only approved instructions can be used in a withdrawal.
   </Step>
+
+  <Step title="Create a quote">
+    Quotes lock the FX rate (or a 1:1 spot for same-asset) for a short window and are bound to one account. Provide either `sourceAmount` or `targetAmount`, never both.
+
+    ```bash
+    curl --request POST \
+      --url {{sandboxUrl}}/api/quotes \
+      --header 'Authorization: Bearer <token>' \
+      --header 'X-Idempotency-Key: <unique-key>' \
+      --header 'Content-Type: application/json' \
+      --data '{
+        "accountId": "<account-id>",
+        "sourceAsset": "BRL",
+        "targetAsset": "BRL",
+        "sourceAmount": "500.00"
+      }'
+    ```
+
+    The response returns the quote `id`, the locked `effectiveRate`, and `expiresAt`. The quote can be consumed by exactly one operation before it expires.
+  </Step>
+
   <Step title="Create the withdrawal">
+    Reference the approved beneficiary, the chosen payment instruction on that beneficiary, and the quote.
+
     ```bash
     curl --request POST \
       --url {{sandboxUrl}}/api/operations/withdrawal \
       --header 'Authorization: Bearer <token>' \
-
       --header 'X-Idempotency-Key: <unique-key>' \
       --header 'Content-Type: application/json' \
       --data '{
-        "type": "WITHDRAWAL",
         "accountId": "<account-id>",
-        "beneficiaryId": "<beneficiary-id>",
-        "amount": {
-          "value": 100000,
-          "asset": "BRL"
+        "quoteId": "<quote-id>",
+        "beneficiary": {
+          "type": "REFERENCE",
+          "id": "<beneficiary-id>",
+          "paymentInstruction": {
+            "type": "REFERENCE",
+            "id": "<payment-instruction-id>"
+          }
         }
       }'
     ```
+
+    Returns `201` immediately with the operation in `REQUESTED` status. Settlement and rail dispatch happen asynchronously.
   </Step>
+
   <Step title="Track the withdrawal">
-    The withdrawal may go through compliance review. Listen for `operation.created`, `operation.completed`, and `operation.failed` webhook events.
+    Poll `GET /api/operations/{operationId}` or subscribe to webhook events to follow the operation through `PROCESSING` to `COMPLETED` (or `FAILED`). Compliance review can pause the operation in `ON_HOLD` or `ACTION_REQUIRED` until additional checks clear.
+
+    ```bash
+    curl --request GET \
+      --url {{sandboxUrl}}/api/operations/<operation-id> \
+      --header 'Authorization: Bearer <token>'
+    ```
   </Step>
 </Steps>
 
 ## What happens next
 
-- [Execute a swap](/journeys/swap) — convert currencies before withdrawing.
+- [Make a deposit](/journeys/deposit) — fund an account before withdrawing.
+- [Execute a swap](/journeys/swap) — convert between assets before sending out.

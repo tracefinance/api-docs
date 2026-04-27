@@ -1,22 +1,42 @@
 ---
 title: "Execute a swap"
-description: "How to convert between currencies using the swap endpoint."
+description: "Step-by-step guide to converting funds between assets within an account."
 ---
 
 ## Overview
 
-Swaps convert funds between currencies within the platform — for example, BRL to USD or BTC to BRL. The flow is forward-only: once a swap is executed at the quoted rate, it cannot be reversed.
+Swaps convert funds between assets within the same account — for example, BRL to USDT or USD to BRL. Every swap references a quote that locks the FX rate. Once executed, a swap cannot be reversed.
 
 ## Prerequisites
 
-- An [active account](/journeys/open-multi-currency-account) with sufficient balance in the source currency.
+- An [active account](/journeys/open-multi-currency-account) with sufficient balance in the quote's source asset.
 - Valid [authentication credentials](/guides/authentication).
 
 ## Steps
 
 <Steps>
+  <Step title="Create a quote">
+    Specify the source asset, target asset, and either the amount you want to spend (`sourceAmount`) or the amount you want to receive (`targetAmount`).
+
+    ```bash
+    curl --request POST \
+      --url {{sandboxUrl}}/api/quotes \
+      --header 'Authorization: Bearer <token>' \
+      --header 'X-Idempotency-Key: <unique-key>' \
+      --header 'Content-Type: application/json' \
+      --data '{
+        "accountId": "<account-id>",
+        "sourceAsset": "BRL",
+        "targetAsset": "USDT",
+        "sourceAmount": "500.00"
+      }'
+    ```
+
+    The response returns the quote `id`, the locked `effectiveRate`, the computed `targetAmount`, and `expiresAt`. The quote is bound to the account and can be consumed by exactly one operation before it expires.
+  </Step>
+
   <Step title="Create the swap">
-    Specify the source and target assets along with the amount to convert. The platform creates a quote automatically and returns it in the response.
+    Reference the account and the quote. No other inputs are needed — source and target assets and amounts are derived from the quote.
 
     ```bash
     curl --request POST \
@@ -26,29 +46,28 @@ Swaps convert funds between currencies within the platform — for example, BRL 
       --header 'Content-Type: application/json' \
       --data '{
         "accountId": "<account-id>",
-        "sourceAsset": "BRL",
-        "targetAsset": "USDT",
-        "sourceAmountValue": 500000
+        "quoteId": "<quote-id>"
       }'
     ```
 
-    The response includes the operation in `PENDING` status with the `quote` object containing the exchange rate, funding amount, settlement amount, and expiration time.
+    Returns `201` immediately with the operation in `REQUESTED` status. Settlement happens asynchronously.
   </Step>
+
   <Step title="Track the swap">
-    Listen for `operation.completed` and `operation.failed` webhook events. You can also poll the operation status:
+    Poll `GET /api/operations/{operationId}` or subscribe to webhook events to follow the operation through `PROCESSING` to `COMPLETED` (or `FAILED`).
 
     ```bash
     curl --request GET \
-      --url {{sandboxUrl}}/api/operations/<operationId> \
+      --url {{sandboxUrl}}/api/operations/<operation-id> \
       --header 'Authorization: Bearer <token>'
     ```
   </Step>
 </Steps>
 
 <Warning>
-  Swaps are forward-only. Once executed, they cannot be reversed. Always verify the quoted rate before submitting.
+  Swaps are forward-only. Once executed at the quoted rate, they cannot be reversed. Verify the `effectiveRate` on the quote before creating the swap.
 </Warning>
 
 ## What happens next
 
-- [Make a withdrawal](/journeys/withdrawal) — send the converted funds to an external destination.
+- [Make a withdrawal](/journeys/withdrawal) — send the converted funds out of the account.

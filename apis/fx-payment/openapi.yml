@@ -370,9 +370,9 @@ components:
         - expiresAt
 
     # ── Operation schemas ─────────────────────────────────────────────
-    # Sourced from fx-payment controllers/requests/responses. Only the
-    # withdrawal endpoint has a controller in code today; deposit and swap
-    # creation are deferred until their controllers ship.
+    # Sourced from fx-payment controllers/requests/responses. Withdrawal has
+    # a controller in code today; swap and deposit are documented here ahead
+    # of their controllers.
     CreateWithdrawalRequest:
       type: object
       description: |
@@ -400,6 +400,75 @@ components:
         - accountId
         - quoteId
         - beneficiary
+    CreateSwapRequest:
+      type: object
+      description: |
+        Every swap references a quote previously obtained from `POST /api/quotes`. The quote
+        determines `sourceAmount` and `targetAmount` (including their assets) and locks the FX
+        rate. A quote can be consumed by at most one operation.
+      properties:
+        accountId:
+          type: string
+          format: uuid
+          description: Account that holds the source funds. Must match the account on the referenced quote.
+          example: "a1b2c3d4-5e6f-7890-abcd-ef1234567890"
+        quoteId:
+          type: string
+          format: uuid
+          description: |
+            ID of a quote returned by `POST /api/quotes`. Must belong to the same
+            customer, must not have expired, and must not have been consumed by another
+            operation.
+          example: "e5f6a7b8-c9d0-1234-efab-3456789012cd"
+      required:
+        - accountId
+        - quoteId
+    CreateDepositRequest:
+      type: object
+      description: |
+        Every deposit references a quote previously obtained from `POST /api/quotes`. The
+        quote determines `sourceAmount` and `targetAmount` and locks the FX rate (or the 1:1
+        spot for same-asset). A quote can be consumed by at most one operation.
+
+        The customer picks which funding rail they will use to send money in via
+        `fundingInstruction.rail`. The response returns the concrete instruction details
+        (PIX key, boleto barcode, TED account, etc.) under `intent.fundingInstruction`.
+      properties:
+        accountId:
+          type: string
+          format: uuid
+          description: Account that will be credited. Must match the account on the referenced quote.
+          example: "a1b2c3d4-5e6f-7890-abcd-ef1234567890"
+        quoteId:
+          type: string
+          format: uuid
+          description: |
+            ID of a quote returned by `POST /api/quotes`. Must belong to the same
+            customer, must not have expired, and must not have been consumed by another
+            operation.
+          example: "f6a7b8c9-d0e1-2345-fabc-456789012cde"
+        fundingInstruction:
+          $ref: "#/components/schemas/DepositFundingInstructionInput"
+      required:
+        - accountId
+        - quoteId
+        - fundingInstruction
+    DepositFundingInstructionInput:
+      type: object
+      description: Selects which funding rail the customer will use to send the money in.
+      properties:
+        rail:
+          type: string
+          enum:
+            - PIX_KEY
+            - PIX_STATIC_QR_CODE
+            - TED
+            - BOLETO
+            - CRYPTO
+          description: Funding rail to use. Must be available on the referenced account for the quote's source asset.
+          example: "PIX_KEY"
+      required:
+        - rail
     WithdrawalBeneficiary:
       description: |
         Beneficiary for the withdrawal. Discriminated by `type`.
@@ -427,12 +496,12 @@ components:
           format: uuid
           description: ID of an existing beneficiary owned by the customer.
           example: "b2c3d4e5-f6a7-8901-bcde-f12345678901"
-        instruction:
+        paymentInstruction:
           $ref: "#/components/schemas/WithdrawalInstruction"
       required:
         - type
         - id
-        - instruction
+        - paymentInstruction
     WithdrawalBeneficiaryInline:
       type: object
       description: Inline beneficiary details. Currently not supported — returns `400`.
@@ -458,11 +527,11 @@ components:
           format: date
         relationshipType:
           type: string
-        instruction:
+        paymentInstruction:
           $ref: "#/components/schemas/WithdrawalInstruction"
       required:
         - type
-        - instruction
+        - paymentInstruction
     WithdrawalInstruction:
       description: |
         Payment instruction to use. Discriminated by `type`.
@@ -510,8 +579,9 @@ components:
     OperationResponse:
       type: object
       description: |
-        An operation. Today only withdrawals are issued (via
-        `POST /api/operations/withdrawal`); deposit and swap creation are deferred.
+        An operation. Withdrawals (`POST /api/operations/withdrawal`), swaps
+        (`POST /api/operations/swap`), and deposits (`POST /api/operations/deposit`)
+        share this shape, discriminated by `intent.type`.
       properties:
         id:
           type: string
@@ -627,10 +697,14 @@ components:
       description: Operation intent. Discriminated by `type`.
       oneOf:
         - $ref: "#/components/schemas/OperationWithdrawalIntent"
+        - $ref: "#/components/schemas/OperationSwapIntent"
+        - $ref: "#/components/schemas/OperationDepositIntent"
       discriminator:
         propertyName: type
         mapping:
           WITHDRAWAL: "#/components/schemas/OperationWithdrawalIntent"
+          SWAP: "#/components/schemas/OperationSwapIntent"
+          DEPOSIT: "#/components/schemas/OperationDepositIntent"
     OperationWithdrawalIntent:
       type: object
       properties:
@@ -643,6 +717,140 @@ components:
       required:
         - type
         - beneficiary
+    OperationSwapIntent:
+      type: object
+      description: |
+        Intent for a swap. Carries only the type discriminator — source and target assets,
+        amounts, account, and quote all live at the operation root.
+      properties:
+        type:
+          type: string
+          enum:
+            - SWAP
+      required:
+        - type
+    OperationDepositIntent:
+      type: object
+      description: |
+        Intent for a deposit. Carries the funding instruction the customer should use to
+        send money in (PIX key, boleto barcode, TED account, etc.).
+      properties:
+        type:
+          type: string
+          enum:
+            - DEPOSIT
+        fundingInstruction:
+          $ref: "#/components/schemas/OperationFundingInstruction"
+      required:
+        - type
+        - fundingInstruction
+    OperationFundingInstruction:
+      description: Funding instruction the customer uses to send money in. Discriminated by `rail`.
+      oneOf:
+        - $ref: "#/components/schemas/OperationPixKeyFunding"
+        - $ref: "#/components/schemas/OperationPixStaticQrCodeFunding"
+        - $ref: "#/components/schemas/OperationTedFunding"
+        - $ref: "#/components/schemas/OperationBoletoFunding"
+        - $ref: "#/components/schemas/OperationCryptoWalletFunding"
+      discriminator:
+        propertyName: rail
+        mapping:
+          PIX_KEY: "#/components/schemas/OperationPixKeyFunding"
+          PIX_STATIC_QR_CODE: "#/components/schemas/OperationPixStaticQrCodeFunding"
+          TED: "#/components/schemas/OperationTedFunding"
+          BOLETO: "#/components/schemas/OperationBoletoFunding"
+          CRYPTO: "#/components/schemas/OperationCryptoWalletFunding"
+    OperationPixKeyFunding:
+      type: object
+      properties:
+        rail:
+          type: string
+          enum:
+            - PIX_KEY
+        keyType:
+          $ref: "#/components/schemas/PixKeyType"
+        key:
+          type: string
+          description: PIX key value, formatted per `keyType`.
+      required:
+        - rail
+        - keyType
+        - key
+    OperationPixStaticQrCodeFunding:
+      type: object
+      properties:
+        rail:
+          type: string
+          enum:
+            - PIX_STATIC_QR_CODE
+        qrCode:
+          type: string
+          description: PIX QR code payload (EMV-encoded BR Code).
+      required:
+        - rail
+        - qrCode
+    OperationTedFunding:
+      type: object
+      properties:
+        rail:
+          type: string
+          enum:
+            - TED
+        bankCode:
+          type: string
+          description: ISPB or COMPE bank code.
+        branch:
+          type: string
+          description: Branch number.
+        accountNumber:
+          type: string
+          description: Account number with check digit.
+        accountType:
+          type: string
+          enum:
+            - CHECKING
+            - SAVINGS
+      required:
+        - rail
+        - bankCode
+        - branch
+        - accountNumber
+        - accountType
+    OperationBoletoFunding:
+      type: object
+      properties:
+        rail:
+          type: string
+          enum:
+            - BOLETO
+        barcode:
+          type: string
+          description: Boleto barcode (digitable line) generated for this deposit.
+        dueDate:
+          type: string
+          format: date
+          description: Last day on which the boleto can be paid.
+      required:
+        - rail
+        - barcode
+        - dueDate
+    OperationCryptoWalletFunding:
+      type: object
+      properties:
+        rail:
+          type: string
+          enum:
+            - CRYPTO
+        network:
+          type: string
+          description: Blockchain network (e.g., `ETHEREUM`, `TRON`, `SOLANA`).
+        walletAddress:
+          type: string
+          description: Wallet address on `network`.
+      required:
+        - rail
+        - network
+        - walletAddress
     OperationBeneficiaryReference:
       type: object
       description: Snapshot of the beneficiary at the time the operation was created.
@@ -655,12 +863,12 @@ components:
           description: ID of the saved beneficiary. `null` is reserved for when inline beneficiaries ship.
         holder:
           $ref: "#/components/schemas/OperationHolderReference"
-        instruction:
+        paymentInstruction:
           $ref: "#/components/schemas/OperationPaymentInstruction"
       required:
         - id
         - holder
-        - instruction
+        - paymentInstruction
     OperationHolderReference:
       description: Holder snapshot. Discriminated by `type`.
       oneOf:
@@ -746,8 +954,6 @@ components:
           type: string
           format: uuid
           description: Payment instruction identifier.
-        asset:
-          $ref: "#/components/schemas/Asset"
         rail:
           type: string
           enum:
@@ -759,7 +965,6 @@ components:
           description: PIX key value, formatted per `keyType`.
       required:
         - id
-        - asset
         - rail
         - keyType
         - key
@@ -770,8 +975,6 @@ components:
           type: string
           format: uuid
           description: Payment instruction identifier.
-        asset:
-          $ref: "#/components/schemas/Asset"
         rail:
           type: string
           enum:
@@ -781,7 +984,6 @@ components:
           description: PIX QR code payload (EMV-encoded BR Code).
       required:
         - id
-        - asset
         - rail
         - qrCode
     OperationTedInstruction:
@@ -791,8 +993,6 @@ components:
           type: string
           format: uuid
           description: Payment instruction identifier.
-        asset:
-          $ref: "#/components/schemas/Asset"
         rail:
           type: string
           enum:
@@ -806,13 +1006,18 @@ components:
         accountNumber:
           type: string
           description: Account number with check digit.
+        accountType:
+          type: string
+          enum:
+            - CHECKING
+            - SAVINGS
       required:
         - id
-        - asset
         - rail
         - bankCode
         - branch
         - accountNumber
+        - accountType
     OperationBoletoInstruction:
       type: object
       properties:
@@ -820,8 +1025,6 @@ components:
           type: string
           format: uuid
           description: Payment instruction identifier.
-        asset:
-          $ref: "#/components/schemas/Asset"
         rail:
           type: string
           enum:
@@ -831,11 +1034,10 @@ components:
           description: Boleto barcode (digitable line).
         dueDate:
           type: string
-          format: date-time
+          format: date
           description: Last day on which the boleto can be paid.
       required:
         - id
-        - asset
         - rail
         - barcode
         - dueDate
@@ -846,8 +1048,6 @@ components:
           type: string
           format: uuid
           description: Payment instruction identifier.
-        asset:
-          $ref: "#/components/schemas/Asset"
         rail:
           type: string
           enum:
@@ -860,7 +1060,6 @@ components:
           description: Wallet address on `network`.
       required:
         - id
-        - asset
         - rail
         - network
         - walletAddress
@@ -912,9 +1111,11 @@ components:
           format: date-time
           description: Time at which the quote was originally set to expire.
         consumedAt:
-          type: string
-          format: date-time
-          description: Time the quote was consumed by this operation.
+          oneOf:
+            - type: string
+              format: date-time
+            - type: "null"
+          description: Time the quote was consumed by this operation. `null` until the operation reaches a state that locks the rate.
       required:
         - id
         - effectiveRate
@@ -1257,6 +1458,39 @@ components:
           resource: "Operation"
           parameters:
             id: "1f3a8c8d-2e1a-4b3a-9d2e-7c1a4b3a9d2e"
+    IdempotencyConflict:
+      summary: X-Idempotency-Key was reused with a different request body
+      value:
+        code: "IDEMPOTENCY_CONFLICT"
+        message: "Idempotency key already used with a different request"
+        details: {}
+    QuoteExpired:
+      summary: Quote expired before the operation was created
+      value:
+        code: "QUOTE_EXPIRED"
+        message: "Quote has expired and can no longer be consumed"
+        details:
+          quoteId: "d4e5f6a7-b8c9-0123-defa-2345678901bc"
+          expiredAt: "2026-04-25T02:34:17Z"
+    QuoteAlreadyConsumed:
+      summary: Quote was already consumed by another operation (1:1 binding)
+      value:
+        code: "QUOTE_ALREADY_CONSUMED"
+        message: "Quote has already been consumed by another operation"
+        details:
+          quoteId: "d4e5f6a7-b8c9-0123-defa-2345678901bc"
+          consumedByOperationId: "1f3a8c8d-2e1a-4b3a-9d2e-7c1a4b3a9d2e"
+    MissingAccountId:
+      summary: accountId is missing from the request body
+      value:
+        code: "INVALID_DATA"
+        message: "Object contains invalid data"
+        details:
+          errors:
+            - code: "REQUIRED"
+              message: "Parameter 'body:accountId' not found in request"
+              field: "body:accountId"
+              params: {}
 
 paths:
   # ── Operations: Withdrawals ───────────────────────────────────────
@@ -1292,7 +1526,7 @@ paths:
                   beneficiary:
                     type: "REFERENCE"
                     id: "b2c3d4e5-f6a7-8901-bcde-f12345678901"
-                    instruction:
+                    paymentInstruction:
                       type: "REFERENCE"
                       id: "c3d4e5f6-a7b8-9012-cdef-1234567890ab"
       responses:
@@ -1348,9 +1582,8 @@ paths:
                             state: "SP"
                             country: "BR"
                             postalCode: "01304-001"
-                        instruction:
+                        paymentInstruction:
                           id: "c3d4e5f6-a7b8-9012-cdef-1234567890ab"
-                          asset: "BRL"
                           rail: "PIX_KEY"
                           keyType: "CPF"
                           key: "12345678901"
@@ -1361,7 +1594,7 @@ paths:
                         base: "BRL"
                         quote: "BRL"
                       expiresAt: "2026-04-25T02:39:47Z"
-                      consumedAt: "2026-04-25T02:39:17Z"
+                      consumedAt: null
                     createdAt: "2026-04-25T02:39:17Z"
                     updatedAt: "2026-04-25T02:39:17Z"
         "400":
@@ -1374,16 +1607,7 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
               examples:
                 missingAccountId:
-                  summary: accountId is missing
-                  value:
-                    code: "INVALID_DATA"
-                    message: "Object contains invalid data"
-                    details:
-                      errors:
-                        - code: "REQUIRED"
-                          message: "Parameter 'body:accountId' not found in request"
-                          field: "body:accountId"
-                          params: {}
+                  $ref: "#/components/examples/MissingAccountId"
                 invalidAccountUuid:
                   summary: accountId is not a UUID
                   value:
@@ -1453,11 +1677,7 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
               examples:
                 idempotencyConflict:
-                  summary: X-Idempotency-Key was reused
-                  value:
-                    code: "IDEMPOTENCY_CONFLICT"
-                    message: "Idempotency key already used with a different request"
-                    details: {}
+                  $ref: "#/components/examples/IdempotencyConflict"
         "422":
           description: Business rule violation.
           content:
@@ -1489,21 +1709,312 @@ paths:
                       quoteSourceAsset: "BRL"
                       instructionAsset: "USDT"
                 quoteExpired:
-                  summary: Quote expired before the withdrawal was created
-                  value:
-                    code: "QUOTE_EXPIRED"
-                    message: "Quote has expired and can no longer be consumed"
-                    details:
-                      quoteId: "d4e5f6a7-b8c9-0123-defa-2345678901bc"
-                      expiredAt: "2026-04-25T02:34:17Z"
+                  $ref: "#/components/examples/QuoteExpired"
                 quoteAlreadyConsumed:
-                  summary: Quote was already consumed by another operation (1:1 binding)
+                  $ref: "#/components/examples/QuoteAlreadyConsumed"
+
+  # ── Operations: Swaps ─────────────────────────────────────────────
+  /api/operations/swap:
+    post:
+      operationId: createSwap
+      tags:
+        - Operations
+      summary: Create a swap
+      description: |
+        Creates a swap that converts funds between assets within the customer's multi-currency
+        account. The referenced quote determines the source and target assets, amounts, and the
+        FX rate. Returns `201` immediately with the operation in `REQUESTED` status; settlement
+        happens asynchronously.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/TraceVersion"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSwapRequest"
+            examples:
+              brlToUsd:
+                summary: BRL → USD swap
+                value:
+                  accountId: "a1b2c3d4-5e6f-7890-abcd-ef1234567890"
+                  quoteId: "e5f6a7b8-c9d0-1234-efab-3456789012cd"
+      responses:
+        "201":
+          description: Swap accepted. The operation is in `REQUESTED` status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationResponse"
+              examples:
+                brlToUsdSwap:
+                  summary: BRL → USD swap in REQUESTED state
                   value:
-                    code: "QUOTE_ALREADY_CONSUMED"
-                    message: "Quote has already been consumed by another operation"
+                    id: "2a4b9d9e-3f2b-5c4b-ae3f-8d2b5c4bae3f"
+                    customerId: "11111111-1111-1111-1111-111111111111"
+                    account:
+                      id: "a1b2c3d4-5e6f-7890-abcd-ef1234567890"
+                      owner: "Acme Importação Ltda"
+                    sourceAmount:
+                      value: 500000
+                      decimalValue: "5000.00"
+                      asset: "BRL"
+                      decimals: 2
+                    targetAmount:
+                      value: 100000
+                      decimalValue: "1000.00"
+                      asset: "USD"
+                      decimals: 2
+                    fees: []
+                    transactions: []
+                    currentState:
+                      status: "REQUESTED"
+                      reason: null
+                      createdAt: "2026-04-27T14:12:33Z"
+                    states:
+                      - status: "REQUESTED"
+                        reason: null
+                        createdAt: "2026-04-27T14:12:33Z"
+                    intent:
+                      type: "SWAP"
+                    quote:
+                      id: "e5f6a7b8-c9d0-1234-efab-3456789012cd"
+                      effectiveRate:
+                        value: "0.20"
+                        base: "BRL"
+                        quote: "USD"
+                      expiresAt: "2026-04-27T14:13:03Z"
+                      consumedAt: null
+                    createdAt: "2026-04-27T14:12:33Z"
+                    updatedAt: "2026-04-27T14:12:33Z"
+        "400":
+          description: "Validation error: missing or malformed fields."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                missingAccountId:
+                  $ref: "#/components/examples/MissingAccountId"
+                invalidAccountUuid:
+                  summary: accountId is not a UUID
+                  value:
+                    code: "INVALID_DATA"
+                    message: "Object contains invalid data"
                     details:
-                      quoteId: "d4e5f6a7-b8c9-0123-defa-2345678901bc"
-                      consumedByOperationId: "1f3a8c8d-2e1a-4b3a-9d2e-7c1a4b3a9d2e"
+                      errors:
+                        - code: "INVALID_UUID"
+                          message: "'not-a-uuid' is not a valid UUID"
+                          field: "body:accountId"
+                          params: {}
+                missingQuoteId:
+                  summary: quoteId is missing
+                  value:
+                    code: "INVALID_DATA"
+                    message: "Object contains invalid data"
+                    details:
+                      errors:
+                        - code: "REQUIRED"
+                          message: "Parameter 'body:quoteId' not found in request"
+                          field: "body:quoteId"
+                          params: {}
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "404":
+          description: Account or quote not found for this customer.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                accountNotFound:
+                  $ref: "#/components/examples/AccountNotFound"
+                quoteNotFound:
+                  $ref: "#/components/examples/QuoteNotFound"
+        "409":
+          description: Idempotency key was reused with a different request body.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                idempotencyConflict:
+                  $ref: "#/components/examples/IdempotencyConflict"
+        "422":
+          description: Business rule violation.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                quoteExpired:
+                  $ref: "#/components/examples/QuoteExpired"
+                quoteAlreadyConsumed:
+                  $ref: "#/components/examples/QuoteAlreadyConsumed"
+
+  # ── Operations: Deposits ──────────────────────────────────────────
+  /api/operations/deposit:
+    post:
+      operationId: createDeposit
+      tags:
+        - Operations
+      summary: Create a deposit
+      description: |
+        Creates a deposit that credits the customer's account once funds arrive via the
+        chosen funding rail. The customer picks the rail with `fundingInstruction.rail`;
+        the response carries the concrete instruction details (PIX key, boleto barcode,
+        TED account, etc.) under `intent.fundingInstruction`. Returns `201` immediately
+        with the operation in `REQUESTED` status; the deposit transitions to `COMPLETED`
+        when the inbound payment is reconciled.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/TraceVersion"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDepositRequest"
+            examples:
+              pixDeposit:
+                summary: BRL deposit via PIX key
+                value:
+                  accountId: "a1b2c3d4-5e6f-7890-abcd-ef1234567890"
+                  quoteId: "f6a7b8c9-d0e1-2345-fabc-456789012cde"
+                  fundingInstruction:
+                    rail: "PIX_KEY"
+              boletoDeposit:
+                summary: BRL deposit via Boleto
+                value:
+                  accountId: "a1b2c3d4-5e6f-7890-abcd-ef1234567890"
+                  quoteId: "f6a7b8c9-d0e1-2345-fabc-456789012cde"
+                  fundingInstruction:
+                    rail: "BOLETO"
+      responses:
+        "201":
+          description: Deposit accepted. The operation is in `REQUESTED` status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationResponse"
+              examples:
+                pixDeposit:
+                  summary: BRL deposit via PIX key in REQUESTED state
+                  value:
+                    id: "3b5c0e0f-4a3c-6d5c-bf4a-9e3c6d5cbf4a"
+                    customerId: "11111111-1111-1111-1111-111111111111"
+                    account:
+                      id: "a1b2c3d4-5e6f-7890-abcd-ef1234567890"
+                      owner: "Acme Importação Ltda"
+                    sourceAmount:
+                      value: 50000
+                      decimalValue: "500.00"
+                      asset: "BRL"
+                      decimals: 2
+                    targetAmount:
+                      value: 50000
+                      decimalValue: "500.00"
+                      asset: "BRL"
+                      decimals: 2
+                    fees: []
+                    transactions: []
+                    currentState:
+                      status: "REQUESTED"
+                      reason: null
+                      createdAt: "2026-04-27T15:08:21Z"
+                    states:
+                      - status: "REQUESTED"
+                        reason: null
+                        createdAt: "2026-04-27T15:08:21Z"
+                    intent:
+                      type: "DEPOSIT"
+                      fundingInstruction:
+                        rail: "PIX_KEY"
+                        keyType: "CNPJ"
+                        key: "12345678000101"
+                    quote:
+                      id: "f6a7b8c9-d0e1-2345-fabc-456789012cde"
+                      effectiveRate:
+                        value: "1.00"
+                        base: "BRL"
+                        quote: "BRL"
+                      expiresAt: "2026-04-27T15:08:51Z"
+                      consumedAt: null
+                    createdAt: "2026-04-27T15:08:21Z"
+                    updatedAt: "2026-04-27T15:08:21Z"
+        "400":
+          description: "Validation error: missing or malformed fields, or unsupported rail."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                missingAccountId:
+                  $ref: "#/components/examples/MissingAccountId"
+                missingRail:
+                  summary: fundingInstruction.rail is missing
+                  value:
+                    code: "INVALID_DATA"
+                    message: "Object contains invalid data"
+                    details:
+                      errors:
+                        - code: "REQUIRED"
+                          message: "Parameter 'body:fundingInstruction.rail' not found in request"
+                          field: "body:fundingInstruction.rail"
+                          params: {}
+                invalidRail:
+                  summary: rail is not one of the accepted values
+                  value:
+                    code: "INVALID_DATA"
+                    message: "Object contains invalid data"
+                    details:
+                      errors:
+                        - code: "INVALID_ENUM"
+                          message: "'WIRE' is not a valid rail"
+                          field: "body:fundingInstruction.rail"
+                          params: {}
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "404":
+          description: Account or quote not found for this customer.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                accountNotFound:
+                  $ref: "#/components/examples/AccountNotFound"
+                quoteNotFound:
+                  $ref: "#/components/examples/QuoteNotFound"
+        "409":
+          description: Idempotency key was reused with a different request body.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                idempotencyConflict:
+                  $ref: "#/components/examples/IdempotencyConflict"
+        "422":
+          description: Business rule violation.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                railNotAvailable:
+                  summary: Selected rail is not available on the account for the quote's source asset
+                  value:
+                    code: "RAIL_NOT_AVAILABLE"
+                    message: "Funding rail is not available for the quote's source asset"
+                    details:
+                      rail: "BOLETO"
+                      asset: "USD"
+                quoteExpired:
+                  $ref: "#/components/examples/QuoteExpired"
+                quoteAlreadyConsumed:
+                  $ref: "#/components/examples/QuoteAlreadyConsumed"
 
   # ── Quotes ────────────────────────────────────────────────────────
   /api/quotes:
@@ -1514,8 +2025,9 @@ paths:
       summary: Create a quote
       description: |
         Creates a quote that locks an FX rate for a short window. Every operation creation
-        endpoint (withdrawal, future deposit, future swap) requires a `quoteId` — see the
-        request body of `POST /api/operations/withdrawal`.
+        endpoint (withdrawal, swap, deposit) requires a `quoteId` — see the request body of
+        `POST /api/operations/withdrawal`, `POST /api/operations/swap`, or
+        `POST /api/operations/deposit`.
 
         Same-asset quotes (`sourceAsset == targetAsset`) are valid and return a 1:1 spot with
         zero spread, so callers can use the same flow for fiat and FX.
@@ -1698,12 +2210,7 @@ paths:
       tags:
         - Operations
       summary: Get an operation
-      description: |
-        Retrieves the full details of an operation by its ID.
-
-        > Endpoint contract is preliminary — the controller has not shipped yet. The
-        > response shape mirrors `POST /api/operations/withdrawal` and will be confirmed
-        > when the read endpoints land in fx-payment.
+      description: Retrieves the full details of an operation by its ID.
       parameters:
         - $ref: "#/components/parameters/OperationId"
         - $ref: "#/components/parameters/TraceVersion"
@@ -1735,9 +2242,6 @@ paths:
       description: |
         Lists all operations for the authenticated customer. Results are paginated and can
         be filtered by status or by intent type.
-
-        > Endpoint contract is preliminary — the controller has not shipped yet. Filters and
-        > pagination behaviour will be confirmed when the read endpoints land in fx-payment.
       parameters:
         - $ref: "#/components/parameters/TraceVersion"
         - $ref: "#/components/parameters/PaginationLimit"
@@ -1750,6 +2254,8 @@ paths:
             type: string
             enum:
               - WITHDRAWAL
+              - SWAP
+              - DEPOSIT
         - name: status
           in: query
           required: false
