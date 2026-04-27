@@ -161,7 +161,7 @@ components:
         - decimalValue
         - asset
         - decimals
-    SpotRate:
+    Rate:
       type: object
       description: Exchange rate between two currencies.
       properties:
@@ -354,8 +354,8 @@ components:
           $ref: "#/components/schemas/AmountResponse"
         targetAmount:
           $ref: "#/components/schemas/AmountResponse"
-        spotRate:
-          $ref: "#/components/schemas/SpotRate"
+        rate:
+          $ref: "#/components/schemas/Rate"
         expiresAt:
           type: string
           format: date-time
@@ -366,7 +366,7 @@ components:
         - account
         - sourceAmount
         - targetAmount
-        - spotRate
+        - rate
         - expiresAt
 
     # ── Operation schemas ─────────────────────────────────────────────
@@ -905,15 +905,20 @@ components:
           type: string
           format: uuid
           description: Quote identifier.
-        spotRate:
-          $ref: "#/components/schemas/SpotRate"
+        rate:
+          $ref: "#/components/schemas/Rate"
+        expiresAt:
+          type: string
+          format: date-time
+          description: Time at which the quote was originally set to expire.
         consumedAt:
           type: string
           format: date-time
           description: Time the quote was consumed by this operation.
       required:
         - id
-        - spotRate
+        - rate
+        - expiresAt
         - consumedAt
 
     # ── Beneficiary schemas ───────────────────────────────────────────
@@ -1351,10 +1356,11 @@ paths:
                           key: "12345678901"
                     quote:
                       id: "d4e5f6a7-b8c9-0123-defa-2345678901bc"
-                      spotRate:
+                      rate:
                         value: "1.00"
                         base: "BRL"
                         quote: "BRL"
+                      expiresAt: "2026-04-25T02:39:47Z"
                       consumedAt: "2026-04-25T02:39:17Z"
                     createdAt: "2026-04-25T02:39:17Z"
                     updatedAt: "2026-04-25T02:39:17Z"
@@ -1573,7 +1579,7 @@ paths:
                       decimalValue: "100.000000"
                       asset: "USDT"
                       decimals: 6
-                    spotRate:
+                    rate:
                       value: "0.20"
                       base: "BRL"
                       quote: "USDT"
@@ -1596,7 +1602,7 @@ paths:
                       decimalValue: "500.00"
                       asset: "BRL"
                       decimals: 2
-                    spotRate:
+                    rate:
                       value: "1.00"
                       base: "BRL"
                       quote: "BRL"
