@@ -236,15 +236,34 @@ components:
         - status
         - reason
         - createdAt
-    BeneficiaryStatus:
+    InstructionStatus:
       type: string
       enum:
         - PENDING_REVIEW
         - APPROVED
         - REJECTED
       description: |
-        Compliance review status. New beneficiaries start in `PENDING_REVIEW` and transition
-        asynchronously to `APPROVED` or `REJECTED`.
+        Compliance review status of a payment instruction. New instructions start in
+        `PENDING_REVIEW` and transition asynchronously to `APPROVED` or `REJECTED`.
+    InstructionState:
+      type: object
+      description: A single entry in a payment instruction's state history. Carries a status, optional reason, and the time the state was entered.
+      properties:
+        status:
+          $ref: "#/components/schemas/InstructionStatus"
+        reason:
+          oneOf:
+            - $ref: "#/components/schemas/Reason"
+            - type: "null"
+          description: Justification for entering this status (e.g., why an instruction was `REJECTED`). `null` for non-terminal or non-rejected states.
+        createdAt:
+          type: string
+          format: date-time
+          description: Time the instruction entered this status.
+      required:
+        - status
+        - reason
+        - createdAt
     Rail:
       type: string
       enum:
@@ -1398,13 +1417,8 @@ components:
           type: string
           description: Asset/currency for this instruction.
           example: "BRL"
-        status:
-          type: string
-          enum:
-            - PENDING_REVIEW
-            - APPROVED
-            - REJECTED
-          description: Compliance review status of this payment instruction.
+        currentState:
+          $ref: "#/components/schemas/InstructionState"
         address:
           $ref: "#/components/schemas/FinancialAddress"
         createdAt:
@@ -1414,7 +1428,7 @@ components:
       required:
         - id
         - asset
-        - status
+        - currentState
         - address
         - createdAt
   responses:
