@@ -261,7 +261,6 @@ components:
           enum:
             - PIX
             - CRYPTO
-            - TED
             - BOLETO
           description: Payment rail for the deposit.
           example: "PIX"
@@ -414,7 +413,7 @@ components:
           type: string
           enum:
             - PIX
-        pixKeyType:
+        dictKeyType:
           type: string
           enum:
             - CPF
@@ -422,15 +421,15 @@ components:
             - EMAIL
             - PHONE
             - EVP
-          description: PIX key type.
-        pixKey:
+          description: DICT key type.
+        dictKey:
           type: string
-          description: PIX key value.
+          description: DICT key value.
           example: "john@example.com"
       required:
         - type
-        - pixKeyType
-        - pixKey
+        - dictKeyType
+        - dictKey
     BankAccountInstruction:
       type: object
       properties:
@@ -562,7 +561,6 @@ components:
           nullable: true
           enum:
             - PIX
-            - TED
             - CRYPTO
             - BOLETO
           description: Payment rail. Present on deposits and withdrawals.
@@ -594,19 +592,18 @@ components:
       properties:
         holder:
           $ref: "#/components/schemas/HolderRequest"
+        relationshipType:
+          type: string
+          enum:
+            - SELF_OWNED
+            - THIRD_PARTY
+          description: Whether the beneficiary is the customer themselves (`SELF_OWNED`) or a separate party (`THIRD_PARTY`).
         paymentInstruction:
           $ref: "#/components/schemas/PaymentInstructionRequest"
       required:
         - holder
+        - relationshipType
         - paymentInstruction
-    UpdateBeneficiaryRequest:
-      type: object
-      description: Request body for updating a beneficiary. Only holder fields can be changed.
-      properties:
-        holder:
-          $ref: "#/components/schemas/HolderRequest"
-      required:
-        - holder
     HolderRequest:
       description: The person or company that receives funds. Discriminated by `type`.
       oneOf:
@@ -624,18 +621,32 @@ components:
           type: string
           enum:
             - INDIVIDUAL
-        name:
+        firstName:
           type: string
-          description: Full legal name.
-          example: "João Silva"
+          description: Given name.
+          example: "João"
+        lastName:
+          type: string
+          description: Family name.
+          example: "Silva"
         taxId:
           type: string
-          nullable: true
-          description: CPF. Optional.
+          description: CPF (Brazilian individual tax ID), digits only.
           example: "12345678900"
+        dateOfBirth:
+          type: string
+          format: date
+          description: Date of birth in ISO 8601 (`yyyy-MM-dd`).
+          example: "1985-03-15"
+        address:
+          $ref: "#/components/schemas/Address"
       required:
         - type
-        - name
+        - firstName
+        - lastName
+        - taxId
+        - dateOfBirth
+        - address
     CompanyHolderRequest:
       type: object
       properties:
@@ -651,14 +662,52 @@ components:
           type: string
           nullable: true
           description: Trade name. Optional.
+          example: "Acme"
         taxId:
           type: string
-          nullable: true
-          description: CNPJ. Optional.
+          description: CNPJ (Brazilian company tax ID), digits only.
           example: "12345678000100"
+        address:
+          $ref: "#/components/schemas/Address"
       required:
         - type
         - legalName
+        - taxId
+        - address
+    Address:
+      type: object
+      description: Postal address. Used by holder requests and responses.
+      properties:
+        addressLine1:
+          type: string
+          description: Street address, first line.
+          example: "Av. Paulista, 1000"
+        addressLine2:
+          type: string
+          nullable: true
+          description: Street address, second line. Optional.
+          example: "Apto 42"
+        city:
+          type: string
+          example: "São Paulo"
+        state:
+          type: string
+          nullable: true
+          description: State or region. Optional.
+          example: "SP"
+        postalCode:
+          type: string
+          description: Postal code (CEP for BR).
+          example: "01310-100"
+        country:
+          type: string
+          description: ISO 3166-1 alpha-2 country code.
+          example: "BR"
+      required:
+        - addressLine1
+        - city
+        - postalCode
+        - country
     PaymentInstructionRequest:
       description: Payment instruction for receiving funds. Discriminated by `type`.
       oneOf:
@@ -673,12 +722,17 @@ components:
           CRYPTO_WALLET: "#/components/schemas/CryptoWalletInstructionRequest"
     PixInstructionRequest:
       type: object
+      description: PIX payment routed by a DICT key.
       properties:
         type:
           type: string
           enum:
             - PIX
-        pixKeyType:
+        asset:
+          type: string
+          description: Asset/currency for the payment instruction (e.g. `BRL`).
+          example: "BRL"
+        dictKeyType:
           type: string
           enum:
             - CPF
@@ -686,22 +740,28 @@ components:
             - EMAIL
             - PHONE
             - EVP
-          description: PIX key type.
-        pixKey:
+          description: DICT key type.
+        dictKey:
           type: string
-          description: PIX key value.
+          description: DICT key value.
           example: "john@example.com"
       required:
         - type
-        - pixKeyType
-        - pixKey
+        - asset
+        - dictKeyType
+        - dictKey
     BankAccountInstructionRequest:
       type: object
+      description: PIX payment routed by bank-account details (agency + account) instead of a DICT key.
       properties:
         type:
           type: string
           enum:
             - BANK_ACCOUNT
+        asset:
+          type: string
+          description: Asset/currency for the payment instruction.
+          example: "BRL"
         bankCode:
           type: string
           description: Bank code (ISPB or COMPE).
@@ -721,17 +781,23 @@ components:
             - SAVINGS
       required:
         - type
+        - asset
         - bankCode
         - branch
         - accountNumber
         - accountType
     CryptoWalletInstructionRequest:
       type: object
+      description: Crypto-wallet payment routed by an on-chain address.
       properties:
         type:
           type: string
           enum:
             - CRYPTO_WALLET
+        asset:
+          type: string
+          description: Crypto asset/currency.
+          example: "USDT"
         address:
           type: string
           description: Wallet address.
@@ -740,15 +806,11 @@ components:
           type: string
           description: Blockchain network.
           example: "ETHEREUM"
-        asset:
-          type: string
-          description: Crypto asset.
-          example: "USDT"
       required:
         - type
+        - asset
         - address
         - chain
-        - asset
     BeneficiaryResponse:
       type: object
       description: An external beneficiary registered for withdrawals.
@@ -763,13 +825,12 @@ components:
           description: Customer that owns this beneficiary.
         holder:
           $ref: "#/components/schemas/HolderResponse"
-        status:
+        relationshipType:
           type: string
           enum:
-            - PENDING_REVIEW
-            - APPROVED
-            - REJECTED
-          description: Compliance review status.
+            - SELF_OWNED
+            - THIRD_PARTY
+          description: Whether the beneficiary is the customer themselves (`SELF_OWNED`) or a separate party (`THIRD_PARTY`).
         paymentInstructions:
           type: array
           items:
@@ -786,8 +847,48 @@ components:
         - id
         - customerId
         - holder
-        - status
+        - relationshipType
         - paymentInstructions
+        - createdAt
+        - updatedAt
+    BeneficiarySummaryResponse:
+      type: object
+      description: Lightweight beneficiary projection used by the list endpoint. Same as `BeneficiaryResponse` but with a count instead of the full payment instructions array.
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "ben-a1b2c3d4-5e6f-7890-abcd-ef1234567890"
+        customerId:
+          type: string
+          format: uuid
+          description: Customer that owns this beneficiary.
+        holder:
+          $ref: "#/components/schemas/HolderResponse"
+        relationshipType:
+          type: string
+          enum:
+            - SELF_OWNED
+            - THIRD_PARTY
+          description: Whether the beneficiary is the customer themselves (`SELF_OWNED`) or a separate party (`THIRD_PARTY`).
+        instructionCount:
+          type: integer
+          description: Number of payment instructions on this beneficiary.
+          example: 2
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-04-14T10:30:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2026-04-14T10:30:00Z"
+      required:
+        - id
+        - customerId
+        - holder
+        - relationshipType
+        - instructionCount
         - createdAt
         - updatedAt
     HolderResponse:
@@ -807,16 +908,30 @@ components:
           type: string
           enum:
             - INDIVIDUAL
-        name:
+        firstName:
           type: string
-          example: "João Silva"
+          example: "João"
+        lastName:
+          type: string
+          example: "Silva"
         taxId:
           type: string
-          nullable: true
+          description: CPF, digits only.
           example: "12345678900"
+        dateOfBirth:
+          type: string
+          format: date
+          description: Date of birth in ISO 8601 (`yyyy-MM-dd`).
+          example: "1985-03-15"
+        address:
+          $ref: "#/components/schemas/Address"
       required:
         - type
-        - name
+        - firstName
+        - lastName
+        - taxId
+        - dateOfBirth
+        - address
     CompanyHolderResponse:
       type: object
       properties:
@@ -830,40 +945,174 @@ components:
         tradeName:
           type: string
           nullable: true
+          example: "Acme"
         taxId:
           type: string
-          nullable: true
+          description: CNPJ, digits only.
           example: "12345678000100"
+        address:
+          $ref: "#/components/schemas/Address"
       required:
         - type
         - legalName
+        - taxId
+        - address
+    FinancialAddress:
+      description: A payment route, discriminated by `rail`. Beneficiary payment instructions emit one of `PIX_KEY`, `PIX_MANUAL`, or `CRYPTO`; other rails appear in operation responses.
+      oneOf:
+        - $ref: "#/components/schemas/PixKeyAddress"
+        - $ref: "#/components/schemas/PixManualAddress"
+        - $ref: "#/components/schemas/PixStaticQrCodeAddress"
+        - $ref: "#/components/schemas/BoletoAddress"
+        - $ref: "#/components/schemas/CryptoWalletAddress"
+      discriminator:
+        propertyName: rail
+        mapping:
+          PIX_KEY: "#/components/schemas/PixKeyAddress"
+          PIX_MANUAL: "#/components/schemas/PixManualAddress"
+          PIX_STATIC_QR_CODE: "#/components/schemas/PixStaticQrCodeAddress"
+          BOLETO: "#/components/schemas/BoletoAddress"
+          CRYPTO: "#/components/schemas/CryptoWalletAddress"
+    PixKeyAddress:
+      type: object
+      description: PIX route via DICT key.
+      properties:
+        rail:
+          type: string
+          enum:
+            - PIX_KEY
+        dictKeyType:
+          type: string
+          enum:
+            - CPF
+            - CNPJ
+            - EMAIL
+            - PHONE
+            - EVP
+          description: DICT key type.
+        dictKey:
+          type: string
+          description: DICT key value.
+          example: "john@example.com"
+      required:
+        - rail
+        - dictKeyType
+        - dictKey
+    PixManualAddress:
+      type: object
+      description: PIX route via bank-account details (no DICT key).
+      properties:
+        rail:
+          type: string
+          enum:
+            - PIX_MANUAL
+        bankCode:
+          type: string
+          description: Bank code (ISPB or COMPE).
+          example: "001"
+        branch:
+          type: string
+          example: "0001"
+        accountNumber:
+          type: string
+          example: "123456"
+        accountType:
+          type: string
+          enum:
+            - CHECKING
+            - SAVINGS
+      required:
+        - rail
+        - bankCode
+        - branch
+        - accountNumber
+        - accountType
+    PixStaticQrCodeAddress:
+      type: object
+      description: PIX route via static QR code payload.
+      properties:
+        rail:
+          type: string
+          enum:
+            - PIX_STATIC_QR_CODE
+        qrCode:
+          type: string
+          description: PIX QR code payload (EMV format).
+          example: "00020126580014br.gov.bcb.pix..."
+      required:
+        - rail
+        - qrCode
+    BoletoAddress:
+      type: object
+      description: Boleto route.
+      properties:
+        rail:
+          type: string
+          enum:
+            - BOLETO
+        barcode:
+          type: string
+          description: Boleto barcode (digitable line).
+          example: "23793.38128 60800.000003 00000.000400 1 84340000012345"
+        dueDate:
+          type: string
+          format: date-time
+          description: Due date for the boleto.
+          example: "2026-05-15T23:59:59Z"
+      required:
+        - rail
+        - barcode
+        - dueDate
+    CryptoWalletAddress:
+      type: object
+      description: Crypto-wallet route.
+      properties:
+        rail:
+          type: string
+          enum:
+            - CRYPTO
+        chain:
+          type: string
+          description: Blockchain network.
+          example: "ETHEREUM"
+        address:
+          type: string
+          description: Wallet address.
+          example: "0x742d35Cc6634C0532925a3b844Bc9e7595f2bD18"
+      required:
+        - rail
+        - chain
+        - address
     PaymentInstructionResponse:
       type: object
-      description: A payment instruction on a beneficiary.
+      description: A payment instruction on a beneficiary. Use `address.rail` to discriminate routing details — for beneficiary instructions it is one of `PIX_KEY`, `PIX_MANUAL`, or `CRYPTO`.
       properties:
         id:
           type: string
           format: uuid
           example: "pi-a1b2c3d4-5e6f-7890-abcd-ef1234567890"
-        type:
+        asset:
+          type: string
+          description: Asset/currency for this instruction.
+          example: "BRL"
+        status:
           type: string
           enum:
-            - PIX
-            - BANK_ACCOUNT
-            - CRYPTO_WALLET
-          description: Instruction type.
-        details:
-          type: object
-          description: Type-specific details (see examples).
-          additionalProperties: true
+            - PENDING_REVIEW
+            - APPROVED
+            - REJECTED
+          description: Compliance review status of this payment instruction.
+        address:
+          $ref: "#/components/schemas/FinancialAddress"
         createdAt:
           type: string
           format: date-time
           example: "2026-04-14T10:30:00Z"
       required:
         - id
-        - type
-        - details
+        - asset
+        - status
+        - address
         - createdAt
   responses:
     UnauthorizedError:
@@ -994,7 +1243,7 @@ paths:
                     code: "INVALID_RAIL"
                     message: "Rail not supported for asset"
                     details:
-                      rail: "TED"
+                      rail: "BOLETO"
                       asset: "USDT"
                 quoteCreationFailed:
                   summary: Unable to create a quote for the requested pair
@@ -1046,8 +1295,8 @@ paths:
                     beneficiaryType: "INDIVIDUAL"
                     account:
                       type: "PIX"
-                      pixKeyType: "EMAIL"
-                      pixKey: "joao@example.com"
+                      dictKeyType: "EMAIL"
+                      dictKey: "joao@example.com"
               qrCode:
                 summary: Pay a PIX QR code
                 value:
@@ -1091,7 +1340,7 @@ paths:
                       parameters:
                         id: "b2c3d4e5-f6a7-8901-bcde-f12345678901"
         "422":
-          description: Validation error (invalid amount, invalid destination, beneficiary not approved).
+          description: Validation error (invalid amount, invalid destination, payment instruction not approved).
           content:
             application/json:
               schema:
@@ -1111,13 +1360,13 @@ paths:
                     message: "Insufficient balance"
                     details:
                       accountId: "a1b2c3d4-5e6f-7890-abcd-ef1234567890"
-                beneficiaryNotApproved:
-                  summary: Beneficiary has not been approved yet
+                paymentInstructionNotApproved:
+                  summary: Referenced payment instruction has not been approved yet
                   value:
-                    code: "BENEFICIARY_NOT_APPROVED"
-                    message: "Beneficiary is not approved"
+                    code: "PAYMENT_INSTRUCTION_NOT_APPROVED"
+                    message: "Payment instruction is not approved"
                     details:
-                      beneficiaryId: "b2c3d4e5-f6a7-8901-bcde-f12345678901"
+                      paymentInstructionId: "pi-a1b2c3d4-5e6f-7890-abcd-ef1234567890"
                       status: "PENDING_REVIEW"
                 invalidDestination:
                   summary: Destination details are invalid or incomplete
@@ -1355,7 +1604,7 @@ paths:
       tags:
         - Beneficiaries
       summary: Create a beneficiary
-      description: Registers a new beneficiary for withdrawals. Initiates a compliance review — the beneficiary starts in `PENDING_REVIEW` status and transitions to `APPROVED` or `REJECTED` asynchronously.
+      description: Registers a new beneficiary for withdrawals. Each payment instruction undergoes a compliance review — instructions start in `PENDING_REVIEW` and transition to `APPROVED` or `REJECTED` asynchronously.
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/TraceVersion"
@@ -1371,21 +1620,41 @@ paths:
                 value:
                   holder:
                     type: "INDIVIDUAL"
-                    name: "João Silva"
+                    firstName: "João"
+                    lastName: "Silva"
                     taxId: "12345678900"
+                    dateOfBirth: "1985-03-15"
+                    address:
+                      addressLine1: "Av. Paulista, 1000"
+                      addressLine2: "Apto 42"
+                      city: "São Paulo"
+                      state: "SP"
+                      postalCode: "01310-100"
+                      country: "BR"
+                  relationshipType: "THIRD_PARTY"
                   paymentInstruction:
                     type: "PIX"
-                    pixKeyType: "EMAIL"
-                    pixKey: "joao@example.com"
+                    asset: "BRL"
+                    dictKeyType: "EMAIL"
+                    dictKey: "joao@example.com"
               bankCompany:
                 summary: Company with bank account
                 value:
                   holder:
                     type: "COMPANY"
                     legalName: "Acme Importação Ltda"
+                    tradeName: "Acme"
                     taxId: "12345678000100"
+                    address:
+                      addressLine1: "Rua da Consolação, 222"
+                      city: "São Paulo"
+                      state: "SP"
+                      postalCode: "01302-000"
+                      country: "BR"
+                  relationshipType: "THIRD_PARTY"
                   paymentInstruction:
                     type: "BANK_ACCOUNT"
+                    asset: "BRL"
                     bankCode: "001"
                     branch: "0001"
                     accountNumber: "123456"
@@ -1395,7 +1664,16 @@ paths:
                 value:
                   holder:
                     type: "INDIVIDUAL"
-                    name: "Jane Doe"
+                    firstName: "Jane"
+                    lastName: "Doe"
+                    taxId: "98765432100"
+                    dateOfBirth: "1990-07-22"
+                    address:
+                      addressLine1: "123 Main St"
+                      city: "Lisbon"
+                      postalCode: "1000-001"
+                      country: "PT"
+                  relationshipType: "SELF_OWNED"
                   paymentInstruction:
                     type: "CRYPTO_WALLET"
                     address: "0x742d35Cc6634C0532925a3b844Bc9e7595f2bD18"
@@ -1403,7 +1681,7 @@ paths:
                     asset: "USDT"
       responses:
         "201":
-          description: Beneficiary created with `PENDING_REVIEW` status.
+          description: Beneficiary created. Its initial payment instruction starts in `PENDING_REVIEW` status.
           content:
             application/json:
               schema:
@@ -1436,31 +1714,21 @@ paths:
                     details:
                       type: "PIX"
                       missingKeys:
-                        - "pixKeyType"
-                        - "pixKey"
+                        - "dictKeyType"
+                        - "dictKey"
     get:
       operationId: listBeneficiaries
       tags:
         - Beneficiaries
       summary: List beneficiaries
-      description: Lists all beneficiaries for the authenticated customer. Results are paginated and can be filtered by status.
+      description: Lists all beneficiaries for the authenticated customer. Returns lightweight summaries — call `GET /api/beneficiaries/{beneficiaryId}` to retrieve the full beneficiary including its payment instructions. Results are paginated.
       parameters:
         - $ref: "#/components/parameters/TraceVersion"
         - $ref: "#/components/parameters/PaginationLimit"
         - $ref: "#/components/parameters/PaginationCursor"
-        - name: status
-          in: query
-          required: false
-          description: Filter by beneficiary status.
-          schema:
-            type: string
-            enum:
-              - PENDING_REVIEW
-              - APPROVED
-              - REJECTED
       responses:
         "200":
-          description: Paginated list of beneficiaries.
+          description: Paginated list of beneficiary summaries.
           content:
             application/json:
               schema:
@@ -1469,7 +1737,7 @@ paths:
                   data:
                     type: array
                     items:
-                      $ref: "#/components/schemas/BeneficiaryResponse"
+                      $ref: "#/components/schemas/BeneficiarySummaryResponse"
                   meta:
                     $ref: "#/components/schemas/PageMetadata"
                 required:
@@ -1477,24 +1745,6 @@ paths:
                   - meta
         "401":
           $ref: "#/components/responses/UnauthorizedError"
-        "422":
-          description: Invalid filter parameter.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              examples:
-                invalidStatus:
-                  summary: Beneficiary status filter is not a valid enum
-                  value:
-                    code: "INVALID_DATA"
-                    message: "Object contains invalid data"
-                    details:
-                      errors:
-                        - code: "INVALID_ENUM"
-                          message: "'ACTIVE' is not a valid enum"
-                          field: "query:status"
-                          params: {}
 
   /api/beneficiaries/{beneficiaryId}:
     get:
@@ -1524,65 +1774,6 @@ paths:
               examples:
                 beneficiaryNotFound:
                   $ref: "#/components/examples/BeneficiaryNotFound"
-    put:
-      operationId: updateBeneficiary
-      tags:
-        - Beneficiaries
-      summary: Update a beneficiary
-      description: Updates the holder information of a beneficiary. Does not modify payment instructions — use the payment instruction endpoints for that.
-      parameters:
-        - $ref: "#/components/parameters/BeneficiaryId"
-        - $ref: "#/components/parameters/TraceVersion"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/UpdateBeneficiaryRequest"
-            examples:
-              updateName:
-                summary: Update holder name
-                value:
-                  holder:
-                    type: "INDIVIDUAL"
-                    name: "João Carlos Silva"
-                    taxId: "12345678900"
-      responses:
-        "200":
-          description: Beneficiary updated.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/BeneficiaryResponse"
-        "401":
-          $ref: "#/components/responses/UnauthorizedError"
-        "404":
-          description: Beneficiary not found.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              examples:
-                beneficiaryNotFound:
-                  $ref: "#/components/examples/BeneficiaryNotFound"
-        "422":
-          description: Validation error (invalid holder type).
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              examples:
-                invalidData:
-                  summary: Request body failed validation
-                  value:
-                    code: "INVALID_DATA"
-                    message: "Object contains invalid data"
-                    details:
-                      errors:
-                        - code: "REQUIRED"
-                          message: "Parameter 'body:holder' not found in request"
-                          field: "body:holder"
-                          params: {}
     delete:
       operationId: deleteBeneficiary
       tags:
@@ -1627,15 +1818,17 @@ paths:
               $ref: "#/components/schemas/PaymentInstructionRequest"
             examples:
               pix:
-                summary: Add a PIX key
+                summary: Add a PIX (DICT key)
                 value:
                   type: "PIX"
-                  pixKeyType: "CPF"
-                  pixKey: "12345678900"
+                  asset: "BRL"
+                  dictKeyType: "CPF"
+                  dictKey: "12345678900"
               bankAccount:
-                summary: Add a bank account (TED)
+                summary: Add a PIX (bank-account routing)
                 value:
                   type: "BANK_ACCOUNT"
+                  asset: "BRL"
                   bankCode: "001"
                   branch: "0001"
                   accountNumber: "123456"
