@@ -20,7 +20,7 @@ Swaps convert funds between currencies within the platform — for example, BRL 
 
     ```bash
     curl --request POST \
-      --url {{sandboxUrl}}/api/swaps \
+      --url {{sandboxUrl}}/api/operations/swap \
       --header 'Authorization: Bearer <token>' \
       --header 'X-Idempotency-Key: <unique-key>' \
       --header 'Content-Type: application/json' \
@@ -39,7 +39,7 @@ Swaps convert funds between currencies within the platform — for example, BRL 
 
     ```bash
     curl --request GET \
-      --url {{sandboxUrl}}/api/operations/<operation-id> \
+      --url {{sandboxUrl}}/api/operations/<operationId> \
       --header 'Authorization: Bearer <token>'
     ```
   </Step>

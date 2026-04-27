@@ -377,7 +377,7 @@ components:
       type: object
       description: |
         Every withdrawal references a quote previously obtained from
-        `POST /api/operations/quotes`. The quote determines `sourceAmount` and
+        `POST /api/quotes`. The quote determines `sourceAmount` and
         `targetAmount` and locks the FX rate (or the 1:1 spot for same-asset). A quote can
         be consumed by at most one operation.
       properties:
@@ -390,7 +390,7 @@ components:
           type: string
           format: uuid
           description: |
-            ID of a quote returned by `POST /api/operations/quotes`. Must belong to the same
+            ID of a quote returned by `POST /api/quotes`. Must belong to the same
             customer, must not have expired, and must not have been consumed by another
             operation.
           example: "d4e5f6a7-b8c9-0123-defa-2345678901bc"
@@ -511,7 +511,7 @@ components:
       type: object
       description: |
         An operation. Today only withdrawals are issued (via
-        `POST /api/operations/withdrawals`); deposit and swap creation are deferred.
+        `POST /api/operations/withdrawal`); deposit and swap creation are deferred.
       properties:
         id:
           type: string
@@ -1260,7 +1260,7 @@ components:
 
 paths:
   # ── Operations: Withdrawals ───────────────────────────────────────
-  /api/operations/withdrawals:
+  /api/operations/withdrawal:
     post:
       operationId: createWithdrawal
       tags:
@@ -1505,8 +1505,8 @@ paths:
                       quoteId: "d4e5f6a7-b8c9-0123-defa-2345678901bc"
                       consumedByOperationId: "1f3a8c8d-2e1a-4b3a-9d2e-7c1a4b3a9d2e"
 
-  # ── Operations: Quotes ────────────────────────────────────────────
-  /api/operations/quotes:
+  # ── Quotes ────────────────────────────────────────────────────────
+  /api/quotes:
     post:
       operationId: createQuote
       tags:
@@ -1515,7 +1515,7 @@ paths:
       description: |
         Creates a quote that locks an FX rate for a short window. Every operation creation
         endpoint (withdrawal, future deposit, future swap) requires a `quoteId` — see the
-        request body of `POST /api/operations/withdrawals`.
+        request body of `POST /api/operations/withdrawal`.
 
         Same-asset quotes (`sourceAsset == targetAsset`) are valid and return a 1:1 spot with
         zero spread, so callers can use the same flow for fiat and FX.
@@ -1702,7 +1702,7 @@ paths:
         Retrieves the full details of an operation by its ID.
 
         > Endpoint contract is preliminary — the controller has not shipped yet. The
-        > response shape mirrors `POST /api/operations/withdrawals` and will be confirmed
+        > response shape mirrors `POST /api/operations/withdrawal` and will be confirmed
         > when the read endpoints land in fx-payment.
       parameters:
         - $ref: "#/components/parameters/OperationId"
