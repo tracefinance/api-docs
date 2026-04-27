@@ -5,7 +5,7 @@ description: "Step-by-step guide to opening an account that holds one or more cu
 
 ## Overview
 
-An account in Trace FX is multi-currency: every account includes crypto support by default, and you declare which fiat assets (like BRL) to enable when you create it. Each fiat asset and the crypto wallet run their own onboarding pipelines, and the account becomes `ACTIVE` as soon as the first one finishes — typically the crypto wallet, since it has no manual steps.
+An account in Trace FX is multi-currency: every account includes crypto support by default, and you declare which fiat assets (like BRL) to enable when you create it. Each fiat asset and the crypto wallet run their own onboarding pipelines.
 
 ## Prerequisites
 
@@ -31,8 +31,13 @@ An account in Trace FX is multi-currency: every account includes crypto support 
         "owner": {
           "type": "COMPANY",
           "legalName": "Acme Ltda",
-          "taxId": "12345678000101",
+          "taxId": {
+            "value": "11222333000181",
+            "type": "CNPJ",
+            "country": "BR"
+          },
           "industry": "INFORMATION_TECHNOLOGY",
+          "incorporateDate": "2018-05-12",
           "address": {
             "addressLine1": "Rua das Flores, 100",
             "addressLine2": "Suite 456",
@@ -45,21 +50,21 @@ An account in Trace FX is multi-currency: every account includes crypto support 
       }'
     ```
 
-    The response returns the account in `REQUESTED` status along with the document types required for onboarding. Fiat onboarding requires document uploads; crypto has none.
+    The response returns the account in `ACTION_REQUIRED` status along with the document types required for onboarding under `requirements.currentlyDue`. Fiat onboarding requires document uploads; crypto has none.
   </Step>
   <Step title="Upload required documents">
-    The creation response includes a `requirements.currentlyDue` array listing every document you need to provide. Each item has a `documentType` — send it in the JSON `body` part of the multipart request, alongside the file:
+    The creation response includes a `requirements.currentlyDue` array listing every document you need to provide. Each item carries a `documentType` (and, for grouped requirements, an `options` array of acceptable types). Documents are uploaded against the flat `/api/documents` endpoint — set `holder.type` to `ACCOUNT` and `holder.referenceId` to the account ID:
 
     ```bash
     curl --request POST \
-      --url {{sandboxUrl}}/api/accounts/<account-id>/documents \
+      --url {{sandboxUrl}}/api/documents \
       --header 'Authorization: Bearer <token>' \
       --header 'X-Idempotency-Key: <unique-key>' \
-      --form 'body={"documentType":"CNPJ_CERTIFICATE"};type=application/json' \
-      --form 'file=@/path/to/cnpj-certificate.pdf'
+      --form 'body={"documentType":"ARTICLES_OF_ASSOCIATION","holder":{"type":"ACCOUNT","referenceId":"<account-id>"}};type=application/json' \
+      --form 'file=@/path/to/articles-of-association.pdf'
     ```
 
-    Returns `204 No Content`. Upload one document per request, repeating for every `documentType` listed in `currentlyDue` before proceeding.
+    Returns `204 No Content`. Upload one document per request, repeating for every requirement listed in `currentlyDue`.
   </Step>
   <Step title="Add beneficial owners (company accounts)">
     Company-owned accounts require at least one beneficial owner (UBO). Register each UBO with their identity and address details:
@@ -72,7 +77,11 @@ An account in Trace FX is multi-currency: every account includes crypto support 
       --header 'Content-Type: application/json' \
       --data '{
         "name": "João Silva",
-        "taxId": "12345678900",
+        "taxId": {
+          "value": "12345678909",
+          "type": "CPF",
+          "country": "BR"
+        },
         "address": {
           "addressLine1": "Rua das Flores, 100",
           "city": "São Paulo",
@@ -87,21 +96,21 @@ An account in Trace FX is multi-currency: every account includes crypto support 
     The response includes the UBO's `id`, which you'll need for uploading their documents.
   </Step>
   <Step title="Upload UBO documents">
-    Each UBO needs identity documents. Use the same `/documents` endpoint as account documents — just include the UBO's `id` as `uboId` inside the JSON `body`:
+    Each UBO needs identity documents. Use the same `/api/documents` endpoint — set `holder.type` to `UBO` and `holder.referenceId` to the UBO's `id`. Identity documents typically require a `documentSubType` (e.g., `FRONT_SIDE` / `BACK_SIDE`) and a `metadata.country`:
 
     ```bash
     curl --request POST \
-      --url {{sandboxUrl}}/api/accounts/<account-id>/documents \
+      --url {{sandboxUrl}}/api/documents \
       --header 'Authorization: Bearer <token>' \
       --header 'X-Idempotency-Key: <unique-key>' \
-      --form 'body={"documentType":"IDENTITY_DOCUMENT","uboId":"<ubo-id>"};type=application/json' \
-      --form 'file=@/path/to/ubo-identity.pdf'
+      --form 'body={"documentType":"ID_CARD","documentSubType":"FRONT_SIDE","holder":{"type":"UBO","referenceId":"<ubo-id>"},"metadata":{"country":"BR"}};type=application/json' \
+      --form 'file=@/path/to/ubo-id-front.pdf'
     ```
 
-    Returns `204 No Content`. Repeat for every UBO registered on the account.
+    Returns `204 No Content`. Repeat for every side and every UBO registered on the account.
   </Step>
   <Step title="Submit for review">
-    Once all required documents are uploaded, submit the account for identity analysis. This endpoint has no request body:
+    Once all required documents are uploaded, submit the account for compliance review. This endpoint has no request body:
 
     ```bash
     curl --request POST \
@@ -110,10 +119,10 @@ An account in Trace FX is multi-currency: every account includes crypto support 
       --header 'X-Idempotency-Key: <unique-key>'
     ```
 
-    Returns `202 Accepted`. The account transitions to `REVIEWING`. If any documents are still missing, the API returns `422` with a `MISSING_DOCUMENTS_FOR_REVIEW` error listing the outstanding types.
+    Returns `202 Accepted`. The account transitions from `ACTION_REQUIRED` to `REVIEWING`. If any documents are still missing or rejected, the API returns `422` with a `MISSING_DOCUMENTS_FOR_REVIEW` error listing the outstanding `documentType` names.
   </Step>
   <Step title="Wait for activation">
-    After analysis is approved, each asset activates on its own pipeline. Listen for the `account.asset_activated` webhook event or poll [`GET /api/accounts/{accountId}`](/api-reference/fx-account/accounts/get-account) — the account becomes `ACTIVE` as soon as the first asset finishes onboarding.
+    After review is approved, each asset activates on its own pipeline. Poll [`GET /api/accounts/{accountId}`](/api-reference/fx-account/accounts/get-account) — the account moves through `OPENING` and becomes `ACTIVE` once the first underlying provider account finishes onboarding (typically the crypto wallet, since it has no manual steps). Each entry in the response's `assets` array carries its own provider-account `status` (`ONBOARDING`, `ACTIVE`, `FAILED`, `FROZEN`, `DEACTIVATED`) so you can see which assets are ready.
   </Step>
   <Step title="Retrieve funding instructions">
     Once the account is active, retrieve the incoming transfer details for each active asset:
