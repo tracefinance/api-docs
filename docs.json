@@ -94,6 +94,13 @@
                   "api-reference/fx-account/beneficial-owners/update-ubo",
                   "api-reference/fx-account/beneficial-owners/remove-ubo"
                 ]
+              },
+              {
+                "group": "Funding instructions",
+                "icon": "money-bill-transfer",
+                "pages": [
+                  "api-reference/fx-account/funding-instructions/list-funding-instructions"
+                ]
               }
             ]
           },
@@ -102,13 +109,6 @@
             "icon": "file-arrow-up",
             "pages": [
               "api-reference/fx-account/documents/upload-document"
-            ]
-          },
-          {
-            "group": "Funding instructions",
-            "icon": "money-bill-transfer",
-            "pages": [
-              "api-reference/fx-account/funding-instructions/list-funding-instructions"
             ]
           },
           {
