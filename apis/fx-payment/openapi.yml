@@ -1118,7 +1118,7 @@ components:
           type: string
           description: Wallet address.
           example: "0x742d35Cc6634C0532925a3b844Bc9e7595f2bD18"
-        chain:
+        network:
           type: string
           description: Blockchain network.
           example: "ETHEREUM"
@@ -1126,7 +1126,7 @@ components:
         - type
         - asset
         - address
-        - chain
+        - network
     BeneficiaryResponse:
       type: object
       description: An external beneficiary registered for withdrawals.
@@ -1401,7 +1401,7 @@ components:
           type: string
           enum:
             - CRYPTO
-        chain:
+        network:
           type: string
           description: Blockchain network.
           example: "ETHEREUM"
@@ -1411,7 +1411,7 @@ components:
           example: "0x742d35Cc6634C0532925a3b844Bc9e7595f2bD18"
       required:
         - rail
-        - chain
+        - network
         - address
     PaymentInstructionResponse:
       type: object
@@ -2136,7 +2136,7 @@ paths:
                   paymentInstruction:
                     type: "CRYPTO_WALLET"
                     address: "0x742d35Cc6634C0532925a3b844Bc9e7595f2bD18"
-                    chain: "ETHEREUM"
+                    network: "ETHEREUM"
                     asset: "USDT"
       responses:
         "201":
