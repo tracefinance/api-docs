@@ -38,7 +38,7 @@ See [Subscribe to events](/webhooks/subscribe) for the full setup walkthrough â€
 
 Every outbound request carries a `X-Message-Signature` header containing an HMAC-SHA256 signature you use to verify the message came from Trace. The signature is computed over `${messageId}+${clientId}` with your client secret as the key:
 
-```
+```text
 X-Message-Signature: <hex-encoded HMAC-SHA256 of "messageId+clientId">
 ```
 

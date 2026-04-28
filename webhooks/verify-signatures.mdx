@@ -13,7 +13,7 @@ Reject any request whose signature does not match — treat unsigned or mis-sign
 
 The signature is computed over the concatenation of the message ID and your client ID, separated by a `+`:
 
-```
+```text
 signature = HMAC-SHA256(secret = clientSecret, data = messageId + "+" + clientId)
 ```
 
