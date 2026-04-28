@@ -1086,7 +1086,7 @@ components:
           example: "BRL"
         bankCode:
           type: string
-          description: Bank code (ISPB or COMPE).
+          description: COMPE code of the receiving bank. The server resolves it to the full `Bank` (name, ISPB) on the response side.
           example: "001"
         branch:
           type: string
@@ -1096,18 +1096,12 @@ components:
           type: string
           description: Account number.
           example: "123456"
-        accountType:
-          type: string
-          enum:
-            - CHECKING
-            - SAVINGS
       required:
         - type
         - asset
         - bankCode
         - branch
         - accountNumber
-        - accountType
     CryptoWalletInstructionRequest:
       type: object
       description: Crypto-wallet payment routed by an on-chain address.
@@ -1328,27 +1322,41 @@ components:
           type: string
           enum:
             - PIX_BANK_INSTRUCTION
-        bankCode:
-          type: string
-          description: Bank code (ISPB or COMPE).
-          example: "001"
+        bank:
+          $ref: "#/components/schemas/Bank"
         branch:
           type: string
           example: "0001"
         accountNumber:
           type: string
           example: "123456"
-        accountType:
-          type: string
-          enum:
-            - CHECKING
-            - SAVINGS
       required:
         - rail
-        - bankCode
+        - bank
         - branch
         - accountNumber
-        - accountType
+    Bank:
+      type: object
+      description: Bank reference. Resolved server-side from the COMPE code provided in the request.
+      properties:
+        code:
+          type: string
+          description: COMPE code (3-digit Brazilian bank code, may be sent unpadded).
+          example: "001"
+        name:
+          type: string
+          description: Registered bank name.
+          example: "BANCO DO BRASIL S.A."
+        ispbCode:
+          oneOf:
+            - type: string
+            - type: "null"
+          description: ISPB code (8-digit Brazilian payment-system identifier). `null` when the bank is not registered with an ISPB.
+          example: "00000000"
+      required:
+        - code
+        - name
+        - ispbCode
     PixStaticQrCodeAddress:
       type: object
       description: PIX route via static QR code payload.
@@ -2110,7 +2118,6 @@ paths:
                     bankCode: "001"
                     branch: "0001"
                     accountNumber: "123456"
-                    accountType: "CHECKING"
               cryptoWallet:
                 summary: Individual with crypto wallet
                 value:
@@ -2284,7 +2291,6 @@ paths:
                   bankCode: "001"
                   branch: "0001"
                   accountNumber: "123456"
-                  accountType: "CHECKING"
       responses:
         "201":
           description: Payment instruction added. Returns the full beneficiary.
@@ -2321,7 +2327,6 @@ paths:
                         - "bankCode"
                         - "branch"
                         - "accountNumber"
-                        - "accountType"
 
   /api/beneficiaries/{beneficiaryId}/payment-instructions/{paymentInstructionId}:
     delete:
