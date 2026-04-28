@@ -61,7 +61,7 @@ curl --request POST \
     "resources": [
       {
         "name": "BENEFICIARY",
-        "events": ["BENEFICIARY_APPROVED", "BENEFICIARY_REJECTED"]
+        "events": ["BENEFICIARY_INSTRUCTION_APPROVED", "BENEFICIARY_INSTRUCTION_REJECTED"]
       }
     ],
     "allowRetry": true
@@ -95,7 +95,7 @@ curl --request PATCH \
   --data '{
     "resources": [
       { "name": "OPERATION", "includeAll": true },
-      { "name": "BENEFICIARY", "events": ["BENEFICIARY_APPROVED"] }
+      { "name": "BENEFICIARY", "events": ["BENEFICIARY_INSTRUCTION_APPROVED"] }
     ]
   }'
 ```

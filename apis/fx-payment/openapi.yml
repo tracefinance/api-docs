@@ -284,6 +284,280 @@ components:
         - INDIVIDUAL
         - COMPANY
       description: Whether a beneficiary or account holder is a person (CPF) or a company (CNPJ).
+    TaxId:
+      type: object
+      description: >
+        Tax identifier as a typed value object. The `number` must match the format expected
+        for the supplied `type` (e.g. a `CPF` must be 11 digits with valid check digits, a
+        `CNPJ` must be 14 digits with valid check digits).
+      properties:
+        type:
+          type: string
+          description: >
+            Tax identifier kind. Brazilian beneficiaries use `CPF` (individual) or `CNPJ`
+            (company); other jurisdictions use the local code (e.g. `SSN`, `EIN`, `CUIT`).
+          example: "CPF"
+        number:
+          type: string
+          description: Tax identifier number, digits only (no dots, dashes, or slashes).
+          example: "52998224725"
+      required:
+        - type
+        - number
+    Country:
+      type: string
+      description: ISO 3166-1 alpha-2 country code.
+      example: "BR"
+      enum:
+        - AF
+        - AL
+        - DZ
+        - AS
+        - AD
+        - AO
+        - AI
+        - AQ
+        - AG
+        - AR
+        - AM
+        - AW
+        - AU
+        - AT
+        - AZ
+        - BS
+        - BH
+        - BD
+        - BB
+        - BY
+        - BE
+        - BZ
+        - BJ
+        - BM
+        - BT
+        - BO
+        - BQ
+        - BA
+        - BW
+        - BV
+        - BR
+        - IO
+        - BN
+        - BG
+        - BF
+        - BI
+        - CV
+        - KH
+        - CM
+        - CA
+        - KY
+        - CF
+        - TD
+        - CL
+        - CN
+        - CX
+        - CC
+        - CO
+        - KM
+        - CD
+        - CG
+        - CK
+        - CR
+        - HR
+        - CU
+        - CW
+        - CY
+        - CZ
+        - CI
+        - DK
+        - DJ
+        - DM
+        - DO
+        - EC
+        - EG
+        - SV
+        - GQ
+        - ER
+        - EE
+        - SZ
+        - ET
+        - FK
+        - FO
+        - FJ
+        - FI
+        - FR
+        - GF
+        - PF
+        - TF
+        - GA
+        - GM
+        - GE
+        - DE
+        - GH
+        - GI
+        - GR
+        - GL
+        - GD
+        - GP
+        - GU
+        - GT
+        - GG
+        - GN
+        - GW
+        - GY
+        - HT
+        - HM
+        - VA
+        - HN
+        - HK
+        - HU
+        - IS
+        - IN
+        - ID
+        - IR
+        - IQ
+        - IE
+        - IM
+        - IL
+        - IT
+        - JM
+        - JP
+        - JE
+        - JO
+        - KZ
+        - KE
+        - KI
+        - KP
+        - KR
+        - KW
+        - KG
+        - LA
+        - LV
+        - LB
+        - LS
+        - LR
+        - LY
+        - LI
+        - LT
+        - LU
+        - MO
+        - MG
+        - MW
+        - MY
+        - MV
+        - ML
+        - MT
+        - MH
+        - MQ
+        - MR
+        - MU
+        - YT
+        - MX
+        - FM
+        - MD
+        - MC
+        - MN
+        - ME
+        - MS
+        - MA
+        - MZ
+        - MM
+        - NA
+        - NR
+        - NP
+        - NL
+        - NC
+        - NZ
+        - NI
+        - NE
+        - NG
+        - NU
+        - NF
+        - MP
+        - NO
+        - OM
+        - PK
+        - PW
+        - PS
+        - PA
+        - PG
+        - PY
+        - PE
+        - PH
+        - PN
+        - PL
+        - PT
+        - PR
+        - QA
+        - MK
+        - RO
+        - RU
+        - RW
+        - RE
+        - BL
+        - SH
+        - KN
+        - LC
+        - MF
+        - PM
+        - VC
+        - WS
+        - SM
+        - ST
+        - SA
+        - SN
+        - RS
+        - SC
+        - SL
+        - SG
+        - SX
+        - SK
+        - SI
+        - SB
+        - SO
+        - ZA
+        - GS
+        - SS
+        - ES
+        - LK
+        - SD
+        - SR
+        - SJ
+        - SE
+        - CH
+        - SY
+        - TW
+        - TJ
+        - TZ
+        - TH
+        - TL
+        - TG
+        - TK
+        - TO
+        - TT
+        - TN
+        - TR
+        - TM
+        - TC
+        - TV
+        - UG
+        - UA
+        - AE
+        - GB
+        - UM
+        - US
+        - UY
+        - UZ
+        - VU
+        - VE
+        - VN
+        - VG
+        - VI
+        - WF
+        - EH
+        - YE
+        - ZM
+        - ZW
+        - AX
     PixKeyType:
       type: string
       enum:
@@ -544,7 +818,7 @@ components:
         tradeName:
           type: string
         taxId:
-          type: string
+          $ref: "#/components/schemas/TaxId"
         dateOfBirth:
           type: string
           format: date
@@ -925,8 +1199,7 @@ components:
         lastName:
           type: string
         taxId:
-          type: string
-          description: CPF.
+          $ref: "#/components/schemas/TaxId"
         dateOfBirth:
           type: string
           format: date
@@ -956,8 +1229,7 @@ components:
             - type: "null"
           description: Trade name (DBA). `null` if the company doesn't use one.
         taxId:
-          type: string
-          description: CNPJ.
+          $ref: "#/components/schemas/TaxId"
         address:
           $ref: "#/components/schemas/Address"
       required:
@@ -1123,9 +1395,7 @@ components:
             - type: "null"
           description: State, province, or region. `null` for countries without subdivisions in the address.
         country:
-          type: string
-          description: ISO 3166-1 alpha-2 country code.
-          example: "BR"
+          $ref: "#/components/schemas/Country"
         postalCode:
           type: string
           description: Postal or ZIP code, formatted per the country's convention.
@@ -1208,9 +1478,7 @@ components:
           description: Family name.
           example: "Silva"
         taxId:
-          type: string
-          description: CPF (Brazilian individual tax ID), digits only.
-          example: "12345678900"
+          $ref: "#/components/schemas/TaxId"
         dateOfBirth:
           type: string
           format: date
@@ -1243,9 +1511,7 @@ components:
           description: Trade name. Optional.
           example: "Acme"
         taxId:
-          type: string
-          description: CNPJ (Brazilian company tax ID), digits only.
-          example: "12345678000100"
+          $ref: "#/components/schemas/TaxId"
         address:
           $ref: "#/components/schemas/Address"
       required:
@@ -1458,9 +1724,7 @@ components:
           type: string
           example: "Silva"
         taxId:
-          type: string
-          description: CPF, digits only.
-          example: "12345678900"
+          $ref: "#/components/schemas/TaxId"
         dateOfBirth:
           type: string
           format: date
@@ -1491,9 +1755,7 @@ components:
           nullable: true
           example: "Acme"
         taxId:
-          type: string
-          description: CNPJ, digits only.
-          example: "12345678000100"
+          $ref: "#/components/schemas/TaxId"
         address:
           $ref: "#/components/schemas/Address"
       required:
@@ -1852,7 +2114,9 @@ paths:
                           type: "INDIVIDUAL"
                           firstName: "John"
                           lastName: "Doe"
-                          taxId: "12345678901"
+                          taxId:
+                            type: "CPF"
+                            number: "52998224725"
                           dateOfBirth: "1990-01-15"
                           address:
                             addressLine1: "Rua Augusta, 500"
@@ -2615,7 +2879,9 @@ paths:
                     type: "INDIVIDUAL"
                     firstName: "João"
                     lastName: "Silva"
-                    taxId: "12345678900"
+                    taxId:
+                      type: "CPF"
+                      number: "52998224725"
                     dateOfBirth: "1985-03-15"
                     address:
                       addressLine1: "Av. Paulista, 1000"
@@ -2637,7 +2903,9 @@ paths:
                     type: "COMPANY"
                     legalName: "Acme Importação Ltda"
                     tradeName: "Acme"
-                    taxId: "12345678000100"
+                    taxId:
+                      type: "CNPJ"
+                      number: "27922482000193"
                     address:
                       addressLine1: "Rua da Consolação, 222"
                       city: "São Paulo"
@@ -2658,7 +2926,9 @@ paths:
                     type: "INDIVIDUAL"
                     firstName: "Jane"
                     lastName: "Doe"
-                    taxId: "98765432100"
+                    taxId:
+                      type: "CPF"
+                      number: "11144477735"
                     dateOfBirth: "1990-07-22"
                     address:
                       addressLine1: "123 Main St"

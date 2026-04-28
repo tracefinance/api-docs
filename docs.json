@@ -217,9 +217,9 @@
                     "group": "Beneficiary",
                     "icon": "address-book",
                     "pages": [
-                      "api-reference/fx-webhook/events/beneficiary/beneficiary-created",
-                      "api-reference/fx-webhook/events/beneficiary/beneficiary-approved",
-                      "api-reference/fx-webhook/events/beneficiary/beneficiary-rejected"
+                      "api-reference/fx-webhook/events/beneficiary/beneficiary-instruction-created",
+                      "api-reference/fx-webhook/events/beneficiary/beneficiary-instruction-approved",
+                      "api-reference/fx-webhook/events/beneficiary/beneficiary-instruction-rejected"
                     ]
                   }
                 ]

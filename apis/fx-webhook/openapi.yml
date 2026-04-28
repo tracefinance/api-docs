@@ -114,9 +114,9 @@ components:
       description: The specific event type within a resource, sent as the `X-Event-Type` header on each delivery.
       enum:
         - ASSET_ACTIVATED
-        - BENEFICIARY_CREATED
-        - BENEFICIARY_APPROVED
-        - BENEFICIARY_REJECTED
+        - BENEFICIARY_INSTRUCTION_CREATED
+        - BENEFICIARY_INSTRUCTION_APPROVED
+        - BENEFICIARY_INSTRUCTION_REJECTED
         - OPERATION_REQUESTED
       example: OPERATION_REQUESTED
     ExecutionLogStatus:
@@ -154,8 +154,8 @@ components:
           items:
             $ref: "#/components/schemas/EventType"
           example:
-            - BENEFICIARY_APPROVED
-            - BENEFICIARY_REJECTED
+            - BENEFICIARY_INSTRUCTION_APPROVED
+            - BENEFICIARY_INSTRUCTION_REJECTED
       required:
         - name
     SubscriptionResource:
@@ -966,9 +966,15 @@ components:
     BeneficiaryEvent:
       type: object
       description: >
-        Payload delivered for beneficiary lifecycle events
-        (`BENEFICIARY_CREATED`, `BENEFICIARY_APPROVED`,
-        `BENEFICIARY_REJECTED`).
+        Payload delivered for beneficiary instruction lifecycle events
+        (`BENEFICIARY_INSTRUCTION_CREATED`, `BENEFICIARY_INSTRUCTION_APPROVED`,
+        `BENEFICIARY_INSTRUCTION_REJECTED`).
+
+        Review status is tracked **per payment instruction**, not on the
+        beneficiary itself. The payload always carries the full beneficiary
+        snapshot — to find which instruction triggered the event, inspect
+        `instructions[].status` (or, for `created`, the most recently added
+        entry).
       properties:
         id:
           type: string
@@ -1079,8 +1085,8 @@ paths:
                   resources:
                     - name: BENEFICIARY
                       events:
-                        - BENEFICIARY_APPROVED
-                        - BENEFICIARY_REJECTED
+                        - BENEFICIARY_INSTRUCTION_APPROVED
+                        - BENEFICIARY_INSTRUCTION_REJECTED
                   allowRetry: true
       responses:
         "201":
@@ -1165,7 +1171,7 @@ paths:
                       includeAll: true
                     - name: BENEFICIARY
                       events:
-                        - BENEFICIARY_APPROVED
+                        - BENEFICIARY_INSTRUCTION_APPROVED
               disable-retry:
                 summary: Stop retrying failed deliveries
                 value:
@@ -1317,10 +1323,16 @@ webhooks:
       responses:
         "200":
           $ref: "#/components/responses/WebhookAck"
-  beneficiary.created:
+  beneficiary.instruction.created:
     post:
-      summary: Beneficiary created
-      description: Fires when a beneficiary is created and enters compliance review.
+      summary: Beneficiary instruction created
+      description: >
+        Fires when a payment instruction is added to a beneficiary — both when
+        the beneficiary itself is first created and when an additional
+        instruction is later attached. The new instruction enters
+        `PENDING_REVIEW` and transitions independently to `APPROVED` or
+        `REJECTED`. The payload is the full beneficiary snapshot; inspect
+        `instructions[]` to find the newly added one.
       tags:
         - Beneficiary
       requestBody:
@@ -1332,10 +1344,15 @@ webhooks:
       responses:
         "200":
           $ref: "#/components/responses/WebhookAck"
-  beneficiary.approved:
+  beneficiary.instruction.approved:
     post:
-      summary: Beneficiary approved
-      description: Fires when a beneficiary's payment instructions are approved and ready for use.
+      summary: Beneficiary instruction approved
+      description: >
+        Fires when one of the beneficiary's payment instructions is approved
+        and becomes usable. Review status lives on each instruction; check
+        `instructions[].status` to find the one that just transitioned. A
+        beneficiary with multiple instructions emits this event once per
+        approval.
       tags:
         - Beneficiary
       requestBody:
@@ -1347,10 +1364,15 @@ webhooks:
       responses:
         "200":
           $ref: "#/components/responses/WebhookAck"
-  beneficiary.rejected:
+  beneficiary.instruction.rejected:
     post:
-      summary: Beneficiary rejected
-      description: Fires when a beneficiary's review is rejected.
+      summary: Beneficiary instruction rejected
+      description: >
+        Fires when one of the beneficiary's payment instructions is rejected
+        in compliance review and cannot be used. Review status lives on each
+        instruction; check `instructions[].status` to find the one that just
+        transitioned. A beneficiary with multiple instructions emits this
+        event once per rejection.
       tags:
         - Beneficiary
       requestBody:
