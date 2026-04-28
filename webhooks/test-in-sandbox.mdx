@@ -12,18 +12,12 @@ The sandbox base URL is `{{sandboxUrl}}` (`https://faas.sandbox.tracefinance.io`
 ## Recommended workflow
 
 <Steps>
-  <Step title="Stand up a public HTTPS endpoint">
-    Your handler must be reachable from the public internet over HTTPS. For local development, expose your machine via a tunnelling tool such as [ngrok](https://ngrok.com) or [Cloudflare Tunnel](https://www.cloudflare.com/products/tunnel/):
-
-    ```bash
-    ngrok http 8080
-    ```
-
-    Use the resulting `https://*.ngrok.io` URL when registering the subscription.
+  <Step title="Deploy your handler to your sandbox environment">
+    Webhooks must reach a public HTTPS URL. Use the same sandbox or staging environment you use for the rest of your Trace integration testing — the same one that calls Trace's sandbox API. Self-signed certificates and private networks are not supported.
   </Step>
 
   <Step title="Register a sandbox subscription">
-    Point the subscription at your tunnel URL and pick the resources you want to test:
+    Point the subscription at your sandbox handler URL and pick the resources you want to test:
 
     ```bash
     curl --request POST \
@@ -31,7 +25,7 @@ The sandbox base URL is `{{sandboxUrl}}` (`https://faas.sandbox.tracefinance.io`
       --header 'Authorization: Bearer <sandbox-token>' \
       --header 'Content-Type: application/json' \
       --data '{
-        "url": "https://abcd1234.ngrok.io/webhooks",
+        "url": "https://api.sandbox.example.com/trace-webhooks",
         "includeAll": true,
         "allowRetry": true
       }'
@@ -64,8 +58,8 @@ The sandbox base URL is `{{sandboxUrl}}` (`https://faas.sandbox.tracefinance.io`
 ## Tips
 
 - Keep your sandbox subscription and production subscription in **separate** projects with their own client credentials. Signatures are bound to the client secret, so a sandbox key won't validate production deliveries (and vice versa).
-- Track which subscription belongs to which environment by URL — for example, point staging to `https://staging.example.com/...` and local dev to your tunnel URL.
-- For ngrok-style tunnels, the URL changes whenever you restart. Either upgrade to a stable subdomain or [PATCH the subscription](/api-reference/fx-webhook/subscriptions/update-subscription) with the new URL each session.
+- Track which subscription belongs to which environment by URL — point staging at your staging handler, production at your production handler.
+- If you want to receive sandbox events on a developer laptop for quick exploration, expose the local handler with a public HTTPS tunnel (for example, [ngrok](https://ngrok.com) or [Cloudflare Tunnel](https://www.cloudflare.com/products/tunnel/)) and [PATCH the subscription](/api-reference/fx-webhook/subscriptions/update-subscription) with the tunnel URL. Tunnel URLs typically change between sessions, so update the subscription each time.
 
 ## Related
 
