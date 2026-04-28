@@ -145,6 +145,7 @@ components:
           COMPANY: "#/components/schemas/CompanyOwnerRequest"
           INDIVIDUAL: "#/components/schemas/IndividualOwnerRequest"
     CompanyOwnerRequest:
+      title: Company
       type: object
       properties:
         type:
@@ -207,6 +208,7 @@ components:
         - industry
         - address
     IndividualOwnerRequest:
+      title: Individual
       type: object
       properties:
         type:
@@ -420,6 +422,7 @@ components:
           COMPANY: "#/components/schemas/CompanyOwnerResponse"
           INDIVIDUAL: "#/components/schemas/IndividualOwnerResponse"
     CompanyOwnerResponse:
+      title: Company
       type: object
       properties:
         type:
@@ -448,6 +451,7 @@ components:
         - address
         - ubos
     IndividualOwnerResponse:
+      title: Individual
       type: object
       properties:
         type:
@@ -844,8 +848,23 @@ components:
         - taxId
         - address
         - currentState
+    Rail:
+      type: string
+      description: Payment rail used to fund a deposit.
+      enum:
+        - PIX_KEY
+        - PIX_STATIC_QR_CODE
+        - PIX_DYNAMIC_QR_CODE
+        - PIX_BANK_INSTRUCTION
+        - BOLETO
+        - CRYPTO
+        - TED
+        - WIRE
+        - SWIFT
+        - SEPA
+        - ACH
     FundingInstructionResponse:
-      description: A funding instruction for depositing into an account. Discriminated by `type`.
+      description: A funding instruction for depositing into an account. Discriminated by `rail`.
       oneOf:
         - $ref: "#/components/schemas/PixKeyFundingInstruction"
         - $ref: "#/components/schemas/PixStaticQrCodeFundingInstruction"
@@ -853,53 +872,33 @@ components:
         - $ref: "#/components/schemas/BoletoFundingInstruction"
         - $ref: "#/components/schemas/CryptoWalletFundingInstruction"
       discriminator:
-        propertyName: type
+        propertyName: rail
         mapping:
           PIX_KEY: "#/components/schemas/PixKeyFundingInstruction"
           PIX_STATIC_QR_CODE: "#/components/schemas/PixStaticQrCodeFundingInstruction"
           TED: "#/components/schemas/TedFundingInstruction"
           BOLETO: "#/components/schemas/BoletoFundingInstruction"
-          CRYPTO_WALLET: "#/components/schemas/CryptoWalletFundingInstruction"
+          CRYPTO: "#/components/schemas/CryptoWalletFundingInstruction"
     FundingInstructionBase:
       type: object
       properties:
         asset:
           $ref: "#/components/schemas/Currency"
-        type:
-          type: string
-          description: Funding instruction type discriminator.
-          enum:
-            - PIX_KEY
-            - PIX_STATIC_QR_CODE
-            - TED
-            - BOLETO
-            - CRYPTO_WALLET
         rail:
-          type: string
-          description: Payment rail. Computed from the type.
-          enum:
-            - PIX
-            - TED
-            - BOLETO
-            - CRYPTO
-          readOnly: true
+          $ref: "#/components/schemas/Rail"
       required:
         - asset
-        - type
         - rail
     PixKeyFundingInstruction:
+      title: PIX key
       allOf:
         - $ref: "#/components/schemas/FundingInstructionBase"
         - type: object
           properties:
-            type:
-              type: string
-              enum:
-                - PIX_KEY
             rail:
               type: string
               enum:
-                - PIX
+                - PIX_KEY
             keyType:
               type: string
               description: PIX key type.
@@ -918,18 +917,15 @@ components:
             - keyType
             - key
     PixStaticQrCodeFundingInstruction:
+      title: PIX static QR code
       allOf:
         - $ref: "#/components/schemas/FundingInstructionBase"
         - type: object
           properties:
-            type:
-              type: string
-              enum:
-                - PIX_STATIC_QR_CODE
             rail:
               type: string
               enum:
-                - PIX
+                - PIX_STATIC_QR_CODE
             qrCode:
               type: string
               description: Static QR code payload (EMV format).
@@ -937,14 +933,11 @@ components:
           required:
             - qrCode
     TedFundingInstruction:
+      title: TED
       allOf:
         - $ref: "#/components/schemas/FundingInstructionBase"
         - type: object
           properties:
-            type:
-              type: string
-              enum:
-                - TED
             rail:
               type: string
               enum:
@@ -971,14 +964,11 @@ components:
             - accountNumber
             - accountType
     BoletoFundingInstruction:
+      title: Boleto
       allOf:
         - $ref: "#/components/schemas/FundingInstructionBase"
         - type: object
           properties:
-            type:
-              type: string
-              enum:
-                - BOLETO
             rail:
               type: string
               enum:
@@ -996,14 +986,11 @@ components:
             - barcode
             - dueDate
     CryptoWalletFundingInstruction:
+      title: Crypto wallet
       allOf:
         - $ref: "#/components/schemas/FundingInstructionBase"
         - type: object
           properties:
-            type:
-              type: string
-              enum:
-                - CRYPTO_WALLET
             rail:
               type: string
               enum:
@@ -1471,13 +1458,11 @@ paths:
                   summary: PIX and TED instructions
                   value:
                     - asset: "BRL"
-                      rail: "PIX"
-                      type: "PIX_KEY"
+                      rail: "PIX_KEY"
                       keyType: "CNPJ"
                       key: "12345678000101"
                     - asset: "BRL"
                       rail: "TED"
-                      type: "TED"
                       bankCode: "001"
                       branch: "0001"
                       accountNumber: "123456-7"
