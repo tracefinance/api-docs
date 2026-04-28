@@ -62,6 +62,16 @@
             ]
           },
           {
+            "group": "Webhooks",
+            "pages": [
+              "webhooks/overview",
+              "webhooks/subscribe",
+              "webhooks/verify-signatures",
+              "webhooks/retry-policy",
+              "webhooks/test-in-sandbox"
+            ]
+          },
+          {
             "group": "Journeys",
             "pages": [
               "journeys/open-multi-currency-account",
@@ -143,6 +153,68 @@
                 "pages": [
                   "api-reference/fx-payment/beneficiaries/add-payment-instruction",
                   "api-reference/fx-payment/beneficiaries/remove-payment-instruction"
+                ]
+              }
+            ]
+          },
+          {
+            "group": "Webhooks",
+            "icon": "webhook",
+            "pages": [
+              {
+                "group": "Subscriptions",
+                "icon": "rss",
+                "pages": [
+                  "api-reference/fx-webhook/subscriptions/create-subscription",
+                  "api-reference/fx-webhook/subscriptions/list-subscriptions",
+                  "api-reference/fx-webhook/subscriptions/get-subscription",
+                  "api-reference/fx-webhook/subscriptions/update-subscription",
+                  "api-reference/fx-webhook/subscriptions/delete-subscription"
+                ]
+              },
+              {
+                "group": "Execution logs",
+                "icon": "list-check",
+                "pages": [
+                  "api-reference/fx-webhook/subscriptions/list-execution-logs",
+                  "api-reference/fx-webhook/subscriptions/get-execution-log",
+                  "api-reference/fx-webhook/subscriptions/resend-delivery"
+                ]
+              },
+              {
+                "group": "References",
+                "icon": "list",
+                "pages": [
+                  "api-reference/fx-webhook/subscriptions/list-resource-references"
+                ]
+              },
+              {
+                "group": "Events",
+                "icon": "bolt",
+                "pages": [
+                  {
+                    "group": "Account",
+                    "icon": "building-columns",
+                    "pages": [
+                      "api-reference/fx-webhook/events/account/asset-activated"
+                    ]
+                  },
+                  {
+                    "group": "Operation",
+                    "icon": "arrows-rotate",
+                    "pages": [
+                      "api-reference/fx-webhook/events/operation/operation-requested"
+                    ]
+                  },
+                  {
+                    "group": "Beneficiary",
+                    "icon": "address-book",
+                    "pages": [
+                      "api-reference/fx-webhook/events/beneficiary/beneficiary-created",
+                      "api-reference/fx-webhook/events/beneficiary/beneficiary-approved",
+                      "api-reference/fx-webhook/events/beneficiary/beneficiary-rejected"
+                    ]
+                  }
                 ]
               }
             ]

@@ -1,0 +1,109 @@
+---
+title: "Subscribe to events"
+description: "Register webhook endpoints, scope event types, and manage subscriptions."
+---
+
+## Overview
+
+A **subscription** is the binding between a partner-controlled URL and one or more resources (optionally narrowed to specific event types per resource). You create subscriptions through the [Subscriptions API](/api-reference/fx-webhook/subscriptions/create-subscription) and can have several active at once — typically one per environment.
+
+## Create a subscription
+
+Send a `POST /api/subscriptions` request with the URL Trace should call and the resources you want to listen to.
+
+```bash
+curl --request POST \
+  --url {{sandboxUrl}}/webhook/api/subscriptions \
+  --header 'Authorization: Bearer <token>' \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "url": "https://api.example.com/trace-webhooks",
+    "resources": [
+      { "name": "OPERATION", "includeAll": true }
+    ],
+    "allowRetry": true
+  }'
+```
+
+The response returns the subscription with its `id`, the resolved `resources` (each resource with its full event-type list), and `createdAt`. Trace begins delivering matching events immediately.
+
+<Note>
+  The URL must be **HTTPS** and reachable from the public internet. Self-signed certificates and private networks are not supported.
+</Note>
+
+## Subscribe to every resource
+
+Set `includeAll: true` at the top level to receive every event type from every resource. Useful when you have a single handler that fans out internally.
+
+```bash
+curl --request POST \
+  --url {{sandboxUrl}}/webhook/api/subscriptions \
+  --header 'Authorization: Bearer <token>' \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "url": "https://api.example.com/trace-webhooks",
+    "includeAll": true,
+    "allowRetry": true
+  }'
+```
+
+## Scope to specific event types
+
+To narrow delivery for a resource, pass an `events` array on its `SubscriptionResourceRequest` instead of `includeAll`:
+
+```bash
+curl --request POST \
+  --url {{sandboxUrl}}/webhook/api/subscriptions \
+  --header 'Authorization: Bearer <token>' \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "url": "https://api.example.com/trace-webhooks",
+    "resources": [
+      {
+        "name": "BENEFICIARY",
+        "events": ["BENEFICIARY_APPROVED", "BENEFICIARY_REJECTED"]
+      }
+    ],
+    "allowRetry": true
+  }'
+```
+
+Each entry in `resources` must have a unique `name`. Fetch the full list of resources and their event types programmatically with [`GET /references/ResourceName/all`](/api-reference/fx-webhook/subscriptions/list-resource-references).
+
+## Multiple subscriptions
+
+You can register multiple subscriptions — for example, one URL for production and another for staging, or different URLs for different resource subsets. Each subscription is delivered independently; a single event can fan out to several endpoints. There is a per-company limit on active subscriptions.
+
+## List, update, and delete
+
+Use the rest of the [Subscriptions API](/api-reference/fx-webhook/subscriptions/list-subscriptions) to manage existing subscriptions:
+
+- [`GET /api/subscriptions`](/api-reference/fx-webhook/subscriptions/list-subscriptions) — list subscriptions for your customer
+- [`GET /api/subscriptions/{subscriptionId}`](/api-reference/fx-webhook/subscriptions/get-subscription) — fetch one
+- [`PATCH /api/subscriptions/{subscriptionId}`](/api-reference/fx-webhook/subscriptions/update-subscription) — change URL, resources, or `allowRetry`
+- [`DELETE /api/subscriptions/{subscriptionId}`](/api-reference/fx-webhook/subscriptions/delete-subscription) — permanently remove
+
+## Update resources or URL
+
+Send `PATCH /api/subscriptions/{subscriptionId}` with only the fields you want to change. To replace the resource list, pass a new `resources` array — it overwrites the existing set.
+
+```bash
+curl --request PATCH \
+  --url {{sandboxUrl}}/webhook/api/subscriptions/<subscription-id> \
+  --header 'Authorization: Bearer <token>' \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "resources": [
+      { "name": "OPERATION", "includeAll": true },
+      { "name": "BENEFICIARY", "events": ["BENEFICIARY_APPROVED"] }
+    ]
+  }'
+```
+
+To stop retrying failed deliveries without removing the subscription, send `{ "allowRetry": false }`.
+
+## Related
+
+- [Verify signatures](/webhooks/verify-signatures) — confirm requests came from Trace
+- [Retry policy](/webhooks/retry-policy) — understand what happens when your endpoint is down
+- [Test in sandbox](/webhooks/test-in-sandbox) — drive events for development

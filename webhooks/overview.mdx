@@ -1,0 +1,72 @@
+---
+title: "Webhooks"
+description: "Receive real-time event notifications from the Trace FX platform."
+---
+
+## Overview
+
+Webhooks let Trace push events to your backend as they happen — account onboarding completions, beneficiary review outcomes, payment operation updates, and more. Instead of polling for state changes, you register an HTTPS endpoint and Trace `POST`s a JSON payload whenever a relevant event fires.
+
+A typical integration looks like:
+
+1. Stand up an HTTPS endpoint on your side that accepts `POST` requests.
+2. Register the URL with the [Subscriptions API](/api-reference/fx-webhook/subscriptions/create-subscription), choosing the resource and event types you want.
+3. Verify each request's signature, process the payload, and return a `2xx` response.
+4. Trace retries failed deliveries and exposes [execution logs](/api-reference/fx-webhook/subscriptions/list-execution-logs) for inspection and manual replay.
+
+## Setup
+
+Webhook subscriptions are managed through the [Subscriptions API](/api-reference/fx-webhook/subscriptions/create-subscription). Each subscription binds one URL to one or more resources (`ACCOUNT`, `OPERATION`, `BENEFICIARY`) and optionally narrows delivery to specific event types per resource.
+
+```bash
+curl --request POST \
+  --url {{sandboxUrl}}/webhook/api/subscriptions \
+  --header 'Authorization: Bearer <token>' \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "url": "https://api.example.com/trace-webhooks",
+    "resources": [
+      { "name": "OPERATION", "includeAll": true }
+    ],
+    "allowRetry": true
+  }'
+```
+
+See [Subscribe to events](/webhooks/subscribe) for the full setup walkthrough — including how to manage multiple subscriptions, scope event types, and pause delivery.
+
+## Signatures
+
+Every outbound request carries a `X-Message-Signature` header containing an HMAC-SHA256 signature you use to verify the message came from Trace. The signature is computed over `${messageId}+${clientId}` with your client secret as the key:
+
+```
+X-Message-Signature: <hex-encoded HMAC-SHA256 of "messageId+clientId">
+```
+
+Other headers you can rely on:
+
+| Header | Purpose |
+| --- | --- |
+| `X-Message-Id` | Unique delivery identifier — also a UUID for idempotency on your side |
+| `X-Company-Id` | Your Trace company identifier |
+| `X-Event-Type` | Event type (e.g., `OPERATION_REQUESTED`) |
+| `X-Resource-Name` | Resource group (e.g., `OPERATION`) |
+
+See [Verify signatures](/webhooks/verify-signatures) for verification code in Python, JavaScript, and Go.
+
+## Retry policy
+
+If your endpoint returns a non-`2xx` status or fails to respond, Trace queues the delivery for retry with a delay between attempts. Each delivery attempt is recorded in an [execution log](/api-reference/fx-webhook/subscriptions/list-execution-logs) you can inspect or [resend manually](/api-reference/fx-webhook/subscriptions/resend-delivery).
+
+See [Retry policy](/webhooks/retry-policy) for the exact retry budget, log lifetime, and replay guidance.
+
+## Available events
+
+Browse the full event catalog by resource:
+
+| Resource | Events | Description |
+| --- | --- | --- |
+| [Account](/api-reference/fx-webhook/events/account/asset-activated) | 1 | Account asset onboarding completion |
+| [Operation](/api-reference/fx-webhook/events/operation/operation-requested) | 1 | Payment operation lifecycle |
+| [Beneficiary](/api-reference/fx-webhook/events/beneficiary/beneficiary-created) | 3 | Beneficiary creation, approval, and rejection |
+
+You can also fetch the catalog programmatically: [`GET /references/ResourceName/all`](/api-reference/fx-webhook/subscriptions/list-resource-references).
