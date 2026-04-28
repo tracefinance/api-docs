@@ -1,0 +1,1380 @@
+openapi: 3.1.1
+info:
+  title: Trace FX Webhooks API
+  version: 1.0.0
+  description: |
+    API for managing webhook subscriptions and inspecting webhook delivery
+    history on the Trace FX platform.
+servers:
+  - url: https://faas.sandbox.tracefinance.io/webhook
+    description: Sandbox
+  - url: https://faas.tracefinance.io/webhook
+    description: Production
+security:
+  - bearerAuth: []
+tags:
+  - name: Subscriptions
+    description: Create, list, update, and delete webhook subscriptions.
+  - name: Execution logs
+    description: Inspect webhook delivery attempts and resend failed deliveries.
+  - name: References
+    description: Look up the resources and event types available for subscription.
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: "Auth0 JWT token. Include as `Authorization: Bearer <token>`."
+  parameters:
+    SubscriptionId:
+      name: subscriptionId
+      in: path
+      required: true
+      description: UUID of the subscription.
+      schema:
+        type: string
+        format: uuid
+    ExecutionLogId:
+      name: executionLogId
+      in: path
+      required: true
+      description: UUID of the execution log entry.
+      schema:
+        type: string
+        format: uuid
+    TraceVersion:
+      name: X-Trace-Version
+      in: header
+      required: false
+      description: API version. Omit to use the default version.
+      schema:
+        type: string
+        example: "1"
+    IdempotencyKey:
+      name: X-Idempotency-Key
+      in: header
+      required: false
+      description: Unique key to ensure idempotent request processing.
+      schema:
+        type: string
+        format: uuid
+    PaginationLimit:
+      name: limit
+      in: query
+      required: false
+      description: Maximum number of items to return. Defaults to 10.
+      schema:
+        type: integer
+        default: 10
+        minimum: 1
+        maximum: 100
+    PaginationCursor:
+      name: cursor
+      in: query
+      required: false
+      description: Opaque cursor for fetching the next or previous page.
+      schema:
+        type: string
+    PaginationDirection:
+      name: direction
+      in: query
+      required: false
+      description: Direction of pagination relative to the cursor.
+      schema:
+        type: string
+        enum:
+          - NEXT
+          - PREVIOUS
+    PaginationSortOrder:
+      name: sortOrder
+      in: query
+      required: false
+      description: Sort order for results. Defaults to DESCENDING.
+      schema:
+        type: string
+        enum:
+          - ASCENDING
+          - DESCENDING
+        default: DESCENDING
+  responses:
+    WebhookAck:
+      description: Acknowledged. Trace considers any 2xx response a successful delivery.
+  schemas:
+    ResourceName:
+      type: string
+      description: The resource group an event belongs to.
+      enum:
+        - ACCOUNT
+        - BENEFICIARY
+        - OPERATION
+      example: OPERATION
+    EventType:
+      type: string
+      description: The specific event type within a resource, sent as the `X-Event-Type` header on each delivery.
+      enum:
+        - ASSET_ACTIVATED
+        - BENEFICIARY_CREATED
+        - BENEFICIARY_APPROVED
+        - BENEFICIARY_REJECTED
+        - OPERATION_REQUESTED
+      example: OPERATION_REQUESTED
+    ExecutionLogStatus:
+      type: string
+      enum:
+        - SUCCESS
+        - FAILED
+      description: Outcome of a delivery attempt. `SUCCESS` indicates a 2xx response was received; `FAILED` indicates a non-2xx response or a network error.
+      example: SUCCESS
+    Currency:
+      type: string
+      description: ISO 4217 currency code or stablecoin symbol.
+      enum:
+        - BRL
+        - USD
+        - EUR
+        - USDT
+        - USDC
+        - EURC
+        - BRLT
+      example: BRL
+    SubscriptionResourceRequest:
+      type: object
+      description: A resource the subscription should listen to, optionally narrowed to specific event types.
+      properties:
+        name:
+          $ref: "#/components/schemas/ResourceName"
+        includeAll:
+          type: boolean
+          description: When `true`, the subscription receives every event type under this resource and the `events` field is ignored. Defaults to `false`.
+          default: false
+        events:
+          type: array
+          description: Specific event types to receive. Required when `includeAll` is `false`.
+          items:
+            $ref: "#/components/schemas/EventType"
+          example:
+            - BENEFICIARY_APPROVED
+            - BENEFICIARY_REJECTED
+      required:
+        - name
+    SubscriptionResource:
+      type: object
+      description: A resource the subscription delivers events for, with the chosen event types resolved.
+      properties:
+        name:
+          $ref: "#/components/schemas/ResourceName"
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/EventType"
+      required:
+        - name
+        - events
+    CreateSubscriptionRequest:
+      type: object
+      description: Request body for creating a new webhook subscription.
+      properties:
+        url:
+          type: string
+          format: uri
+          description: HTTPS URL where Trace will POST event payloads. Must be reachable from the public internet.
+          example: "https://api.example.com/trace-webhooks"
+        includeAll:
+          type: boolean
+          description: When `true`, the subscription is created for every resource and event type, and the `resources` field is ignored. Defaults to `false`.
+          default: false
+        resources:
+          type: array
+          description: Resources the subscription should listen to. Required when `includeAll` is `false`. Each resource name must be unique.
+          minItems: 1
+          uniqueItems: true
+          items:
+            $ref: "#/components/schemas/SubscriptionResourceRequest"
+        allowRetry:
+          type: boolean
+          description: Whether failed deliveries should be retried. Defaults to `false`.
+          default: false
+      required:
+        - url
+    UpdateSubscriptionRequest:
+      type: object
+      description: Request body for updating a subscription. All fields are optional; only provided fields are changed.
+      properties:
+        url:
+          type: string
+          format: uri
+          example: "https://api.example.com/trace-webhooks-v2"
+        includeAll:
+          type: boolean
+          description: When `true`, the subscription is reconfigured to receive every resource and event type.
+        resources:
+          type: array
+          description: Replacement set of resources. Each entry follows the same shape as on create.
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/SubscriptionResourceRequest"
+        allowRetry:
+          type: boolean
+    Subscription:
+      type: object
+      description: A webhook subscription that delivers events from one or more resources to a partner-controlled URL.
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "8a13c6a4-1a3d-4f49-ad62-9dca8c47e2c6"
+        companyId:
+          type: string
+          description: Company identifier that owns the subscription.
+          example: "11111111-1111-1111-1111-111111111111"
+        url:
+          type: string
+          format: uri
+          example: "https://api.example.com/trace-webhooks"
+        resources:
+          type: array
+          description: Resources and event types this subscription delivers.
+          items:
+            $ref: "#/components/schemas/SubscriptionResource"
+        allowRetry:
+          type: boolean
+          description: Whether failed deliveries are retried.
+          example: true
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-04-28T14:32:11Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2026-04-28T14:32:11Z"
+      required:
+        - id
+        - companyId
+        - url
+        - resources
+        - allowRetry
+        - createdAt
+        - updatedAt
+    SubscriptionList:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Subscription"
+        meta:
+          $ref: "#/components/schemas/PaginationMeta"
+      required:
+        - data
+        - meta
+
+    ExecutionLog:
+      type: object
+      description: A record of a single webhook delivery attempt, including request payload, response status, and retry history.
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "7c9b46e8-3f33-4edc-94e2-bd4b58e0c62f"
+        companyId:
+          type: string
+          description: Company identifier that owns the subscription.
+          example: "11111111-1111-1111-1111-111111111111"
+        subscriptionId:
+          type: string
+          format: uuid
+          example: "8a13c6a4-1a3d-4f49-ad62-9dca8c47e2c6"
+        messageId:
+          type: string
+          description: Unique identifier of the event delivery, also sent as the `X-Message-Id` header on the outbound request.
+          example: "9f1d83b2-4d6c-49ad-9bb6-8cf4a3a25de0"
+        eventType:
+          $ref: "#/components/schemas/EventType"
+        url:
+          type: string
+          format: uri
+          description: URL that was called.
+          example: "https://api.example.com/trace-webhooks"
+        payload:
+          type: string
+          description: The JSON body that was delivered, serialized as a string.
+          example: "{\"id\":\"1f3a8c8d-2e1a-4b3a-9d2e-7c1a4b3a9d2e\",\"customerId\":\"...\",\"atTime\":\"2026-04-28T14:32:11Z\"}"
+        httpStatus:
+          type: integer
+          description: HTTP status code returned by the partner endpoint. `0` if the request never received a response.
+          example: 200
+        error:
+          type: string
+          nullable: true
+          description: Error message captured when delivery failed. `null` on success.
+          example: null
+        status:
+          $ref: "#/components/schemas/ExecutionLogStatus"
+        retryAttempts:
+          type: integer
+          description: Number of retry attempts made after the initial delivery.
+          example: 0
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-04-28T14:32:11Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2026-04-28T14:32:12Z"
+      required:
+        - id
+        - companyId
+        - subscriptionId
+        - messageId
+        - eventType
+        - url
+        - payload
+        - httpStatus
+        - status
+        - retryAttempts
+        - createdAt
+        - updatedAt
+    ExecutionLogList:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExecutionLog"
+        meta:
+          $ref: "#/components/schemas/PaginationMeta"
+      required:
+        - data
+        - meta
+
+    ResourceReference:
+      type: object
+      description: A resource and the list of event types it exposes.
+      properties:
+        resourceName:
+          $ref: "#/components/schemas/ResourceName"
+        eventTypes:
+          type: array
+          items:
+            $ref: "#/components/schemas/EventType"
+      required:
+        - resourceName
+        - eventTypes
+
+    PaginationMeta:
+      type: object
+      description: Cursor-based pagination metadata.
+      properties:
+        previousCursor:
+          type: string
+          nullable: true
+          description: Cursor for the previous page. `null` on the first page.
+          example: null
+        nextCursor:
+          type: string
+          nullable: true
+          description: Cursor for the next page. `null` on the last page.
+          example: "eyJpZCI6ImFjY18wMDIifQ"
+        total:
+          type: integer
+          description: Number of items in the current page.
+          example: 10
+      required:
+        - previousCursor
+        - nextCursor
+        - total
+
+    ErrorResponse:
+      type: object
+      description: Standard error response. See the [Errors](/guides/principles/errors) guide for the full code catalog.
+      properties:
+        code:
+          type: string
+          example: "RESOURCE_NOT_FOUND"
+        message:
+          type: string
+          example: "Subscription with id '8a13c6a4-1a3d-4f49-ad62-9dca8c47e2c6' was not found."
+        details:
+          type: object
+          additionalProperties: true
+      required:
+        - code
+        - message
+
+    AmountEvent:
+      type: object
+      description: Monetary amount carrying both an integer (for arithmetic) and a decimal string (for display).
+      properties:
+        value:
+          type: string
+          description: Value in minor units, serialized as a decimal string to preserve precision.
+          example: "50000"
+        decimalValue:
+          type: string
+          description: Same value formatted with the asset's decimal places, ready to display.
+          example: "500.00"
+        asset:
+          type: string
+          description: Currency or stablecoin code (e.g., `BRL`, `USDT`).
+          example: "BRL"
+        decimals:
+          type: integer
+          description: Number of decimal places for the asset.
+          example: 2
+      required:
+        - value
+        - decimalValue
+        - asset
+        - decimals
+    AddressEvent:
+      type: object
+      description: Postal address.
+      properties:
+        addressLine1:
+          type: string
+          example: "Rua Augusta, 500"
+        addressLine2:
+          type: string
+          nullable: true
+          example: null
+        city:
+          type: string
+          example: "São Paulo"
+        state:
+          type: string
+          nullable: true
+          example: "SP"
+        country:
+          type: string
+          description: ISO 3166-1 alpha-2 country code.
+          example: "BR"
+        postalCode:
+          type: string
+          example: "01304-001"
+      required:
+        - addressLine1
+        - city
+        - country
+        - postalCode
+    AccountReferenceEvent:
+      type: object
+      description: Reference to a customer account, including the registered owner name.
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "a1b2c3d4-5e6f-7890-abcd-ef1234567890"
+        owner:
+          type: string
+          description: Registered account owner name.
+          example: "Acme Importação Ltda"
+      required:
+        - id
+        - owner
+    SpotRateEvent:
+      type: object
+      description: Quote rate snapshot with currency pair.
+      properties:
+        value:
+          type: string
+          description: Decimal rate, source-asset per target-asset.
+          example: "1.00"
+        base:
+          $ref: "#/components/schemas/Currency"
+        quote:
+          $ref: "#/components/schemas/Currency"
+      required:
+        - value
+        - base
+        - quote
+    QuoteReferenceEvent:
+      type: object
+      description: Reference to the quote consumed by the operation.
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "d4e5f6a7-b8c9-0123-defa-2345678901bc"
+        spotRate:
+          $ref: "#/components/schemas/SpotRateEvent"
+      required:
+        - id
+        - spotRate
+    PixKeyType:
+      type: string
+      enum:
+        - CPF
+        - CNPJ
+        - EMAIL
+        - PHONE
+        - EVP
+      description: PIX key flavour.
+    PaymentInstructionEventStatus:
+      type: string
+      enum:
+        - PENDING_REVIEW
+        - APPROVED
+        - REJECTED
+      description: Compliance review status of the payment instruction.
+    Rail:
+      type: string
+      description: Payment rail used to settle a payment instruction.
+      enum:
+        - PIX_KEY
+        - PIX_STATIC_QR_CODE
+        - PIX_DYNAMIC_QR_CODE
+        - PIX_BANK_INSTRUCTION
+        - BOLETO
+        - CRYPTO
+        - TED
+        - WIRE
+        - SWIFT
+        - SEPA
+        - ACH
+    FeeSource:
+      type: string
+      enum:
+        - FX_SPREAD
+        - PLATFORM
+        - RAIL
+        - PARTNER
+      description: Origin of the fee charged.
+    Direction:
+      type: string
+      enum:
+        - CREDIT
+        - DEBIT
+      description: Direction a transaction moves funds, relative to the partner's account.
+    TransactionStatus:
+      type: string
+      enum:
+        - PROCESSING
+        - CONFIRMED
+        - FAILED
+      description: Lifecycle status of an underlying rail transaction.
+    TransactionState:
+      type: object
+      description: A single entry in a transaction's state history.
+      properties:
+        status:
+          $ref: "#/components/schemas/TransactionStatus"
+        reason:
+          type: string
+          nullable: true
+          description: Justification for the state. Required for `FAILED`; `null` otherwise.
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - status
+        - createdAt
+
+    HolderEvent:
+      description: Beneficiary holder. Discriminated by `type`.
+      oneOf:
+        - $ref: "#/components/schemas/IndividualHolderEvent"
+        - $ref: "#/components/schemas/CompanyHolderEvent"
+      discriminator:
+        propertyName: type
+        mapping:
+          INDIVIDUAL: "#/components/schemas/IndividualHolderEvent"
+          COMPANY: "#/components/schemas/CompanyHolderEvent"
+    IndividualHolderEvent:
+      title: Individual
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+            - INDIVIDUAL
+        firstName:
+          type: string
+          example: "John"
+        lastName:
+          type: string
+          example: "Doe"
+        taxId:
+          type: string
+          description: CPF.
+          example: "12345678901"
+        dateOfBirth:
+          type: string
+          format: date
+          example: "1990-01-15"
+        address:
+          $ref: "#/components/schemas/AddressEvent"
+      required:
+        - type
+        - firstName
+        - lastName
+        - taxId
+        - dateOfBirth
+        - address
+    CompanyHolderEvent:
+      title: Company
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+            - COMPANY
+        legalName:
+          type: string
+          example: "Acme Importação Ltda"
+        tradeName:
+          type: string
+          nullable: true
+          example: "Acme"
+        taxId:
+          type: string
+          description: CNPJ.
+          example: "12345678000100"
+        address:
+          $ref: "#/components/schemas/AddressEvent"
+      required:
+        - type
+        - legalName
+        - taxId
+        - address
+    FinancialAddressEvent:
+      description: Routing details for a payment instruction. Discriminated by `type`.
+      oneOf:
+        - $ref: "#/components/schemas/PixKeyAddressEvent"
+        - $ref: "#/components/schemas/PixStaticQrCodeAddressEvent"
+        - $ref: "#/components/schemas/TedAddressEvent"
+        - $ref: "#/components/schemas/BoletoAddressEvent"
+        - $ref: "#/components/schemas/CryptoWalletAddressEvent"
+      discriminator:
+        propertyName: type
+        mapping:
+          PixKey: "#/components/schemas/PixKeyAddressEvent"
+          PixStaticQrCode: "#/components/schemas/PixStaticQrCodeAddressEvent"
+          Ted: "#/components/schemas/TedAddressEvent"
+          Boleto: "#/components/schemas/BoletoAddressEvent"
+          CryptoWallet: "#/components/schemas/CryptoWalletAddressEvent"
+    PixKeyAddressEvent:
+      title: PIX key
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+            - PixKey
+        rail:
+          type: string
+          enum:
+            - PIX_KEY
+        keyType:
+          $ref: "#/components/schemas/PixKeyType"
+        key:
+          type: string
+          example: "12345678901"
+      required:
+        - type
+        - rail
+        - keyType
+        - key
+    PixStaticQrCodeAddressEvent:
+      title: PIX static QR code
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+            - PixStaticQrCode
+        rail:
+          type: string
+          enum:
+            - PIX_STATIC_QR_CODE
+        qrCode:
+          type: string
+          description: EMV-encoded BR Code payload.
+          example: "00020126580014br.gov.bcb.pix..."
+      required:
+        - type
+        - rail
+        - qrCode
+    TedAddressEvent:
+      title: TED
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+            - Ted
+        rail:
+          type: string
+          enum:
+            - TED
+        bankCode:
+          type: string
+          description: ISPB or COMPE bank code.
+          example: "001"
+        branch:
+          type: string
+          example: "0001"
+        accountNumber:
+          type: string
+          example: "123456-7"
+      required:
+        - type
+        - rail
+        - bankCode
+        - branch
+        - accountNumber
+    BoletoAddressEvent:
+      title: Boleto
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+            - Boleto
+        rail:
+          type: string
+          enum:
+            - BOLETO
+        barcode:
+          type: string
+          example: "23793.38128 60800.000003 00000.000400 1 84340000012345"
+        dueDate:
+          type: string
+          format: date-time
+          example: "2026-04-04T00:00:00Z"
+      required:
+        - type
+        - rail
+        - barcode
+        - dueDate
+    CryptoWalletAddressEvent:
+      title: Crypto wallet
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+            - CryptoWallet
+        rail:
+          type: string
+          enum:
+            - CRYPTO
+        network:
+          type: string
+          example: "ETHEREUM"
+        walletAddress:
+          type: string
+          example: "0x1234567890abcdef1234567890abcdef12345678"
+      required:
+        - type
+        - rail
+        - network
+        - walletAddress
+    PaymentInstructionEvent:
+      type: object
+      description: A payment instruction attached to a beneficiary, with full address and review status.
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "c3d4e5f6-a7b8-9012-cdef-1234567890ab"
+        asset:
+          $ref: "#/components/schemas/Currency"
+        status:
+          $ref: "#/components/schemas/PaymentInstructionEventStatus"
+        address:
+          $ref: "#/components/schemas/FinancialAddressEvent"
+      required:
+        - id
+        - asset
+        - status
+        - address
+    HolderReferenceEvent:
+      type: object
+      description: Snapshot of a beneficiary holder included in operation payloads.
+      properties:
+        name:
+          type: string
+          example: "John Doe"
+        taxId:
+          type: string
+          example: "12345678901"
+        address:
+          $ref: "#/components/schemas/AddressEvent"
+      required:
+        - name
+        - taxId
+        - address
+    PaymentInstructionReferenceEvent:
+      type: object
+      description: Snapshot of the payment instruction routed by the operation.
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "c3d4e5f6-a7b8-9012-cdef-1234567890ab"
+        address:
+          $ref: "#/components/schemas/FinancialAddressEvent"
+      required:
+        - id
+        - address
+    BeneficiaryReferenceEvent:
+      type: object
+      description: Snapshot of the beneficiary linked to a withdrawal operation.
+      properties:
+        id:
+          type: string
+          format: uuid
+          nullable: true
+          description: ID of the saved beneficiary, when one exists.
+          example: "b2c3d4e5-f6a7-8901-bcde-f12345678901"
+        holder:
+          $ref: "#/components/schemas/HolderReferenceEvent"
+        instruction:
+          $ref: "#/components/schemas/PaymentInstructionReferenceEvent"
+      required:
+        - holder
+        - instruction
+    IntentEvent:
+      description: Operation intent. Discriminated by `type`.
+      oneOf:
+        - $ref: "#/components/schemas/WithdrawalIntentEvent"
+      discriminator:
+        propertyName: type
+        mapping:
+          WITHDRAWAL: "#/components/schemas/WithdrawalIntentEvent"
+    WithdrawalIntentEvent:
+      title: Withdrawal
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+            - WITHDRAWAL
+        beneficiary:
+          $ref: "#/components/schemas/BeneficiaryReferenceEvent"
+      required:
+        - type
+        - beneficiary
+    FeeEvent:
+      description: Fee charged on the operation. Discriminated by `type`.
+      oneOf:
+        - $ref: "#/components/schemas/PercentageFeeEvent"
+        - $ref: "#/components/schemas/AbsoluteFeeEvent"
+      discriminator:
+        propertyName: type
+        mapping:
+          PERCENTAGE: "#/components/schemas/PercentageFeeEvent"
+          ABSOLUTE: "#/components/schemas/AbsoluteFeeEvent"
+    PercentageFeeEvent:
+      title: Percentage
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+            - PERCENTAGE
+        amount:
+          $ref: "#/components/schemas/AmountEvent"
+        source:
+          $ref: "#/components/schemas/FeeSource"
+        percentage:
+          type: string
+          description: Decimal percentage applied (e.g., `0.0050` for 0.5%).
+          example: "0.0050"
+      required:
+        - type
+        - amount
+        - source
+        - percentage
+    AbsoluteFeeEvent:
+      title: Absolute
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+            - ABSOLUTE
+        amount:
+          $ref: "#/components/schemas/AmountEvent"
+        source:
+          $ref: "#/components/schemas/FeeSource"
+      required:
+        - type
+        - amount
+        - source
+    TransactionEvent:
+      description: An underlying rail transaction executed for the operation. Discriminated by `type`.
+      oneOf:
+        - $ref: "#/components/schemas/PixTransactionEvent"
+      discriminator:
+        propertyName: type
+        mapping:
+          PIX: "#/components/schemas/PixTransactionEvent"
+    PixTransactionEvent:
+      title: PIX
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+            - PIX
+        id:
+          type: string
+          description: Rail-side transaction identifier.
+        direction:
+          $ref: "#/components/schemas/Direction"
+        amount:
+          $ref: "#/components/schemas/AmountEvent"
+        endToEnd:
+          type: string
+          nullable: true
+          description: PIX end-to-end identifier (E2E ID), assigned by the central bank when available.
+        currentState:
+          $ref: "#/components/schemas/TransactionState"
+      required:
+        - type
+        - id
+        - direction
+        - amount
+        - currentState
+
+    AccountAssetActivatedEvent:
+      type: object
+      description: Payload delivered when an account asset finishes onboarding and funding instructions are available.
+      properties:
+        accountId:
+          type: string
+          format: uuid
+        customerId:
+          type: string
+        assets:
+          type: array
+          description: Assets activated by this event.
+          items:
+            $ref: "#/components/schemas/Currency"
+        atTime:
+          type: string
+          format: date-time
+      required:
+        - accountId
+        - customerId
+        - assets
+        - atTime
+    BeneficiaryEvent:
+      type: object
+      description: |
+        Payload delivered for beneficiary lifecycle events
+        (`BENEFICIARY_CREATED`, `BENEFICIARY_APPROVED`,
+        `BENEFICIARY_REJECTED`).
+      properties:
+        id:
+          type: string
+          format: uuid
+        customerId:
+          type: string
+          format: uuid
+        holder:
+          $ref: "#/components/schemas/HolderEvent"
+        instructions:
+          type: array
+          description: Payment instructions attached to the beneficiary, each with its own review status.
+          items:
+            $ref: "#/components/schemas/PaymentInstructionEvent"
+        atTime:
+          type: string
+          format: date-time
+      required:
+        - id
+        - customerId
+        - holder
+        - instructions
+        - atTime
+    OperationEvent:
+      type: object
+      description: |
+        Payload delivered for operation lifecycle events
+        (`OPERATION_REQUESTED` and additional events as the operation
+        progresses).
+      properties:
+        id:
+          type: string
+          format: uuid
+        customerId:
+          type: string
+        account:
+          $ref: "#/components/schemas/AccountReferenceEvent"
+        sourceAmount:
+          $ref: "#/components/schemas/AmountEvent"
+        destinationAmount:
+          $ref: "#/components/schemas/AmountEvent"
+        intent:
+          $ref: "#/components/schemas/IntentEvent"
+        quote:
+          allOf:
+            - $ref: "#/components/schemas/QuoteReferenceEvent"
+          nullable: true
+          description: Quote linked to the operation, when applicable. `null` for same-asset operations or operations without a quote.
+        fees:
+          type: array
+          items:
+            $ref: "#/components/schemas/FeeEvent"
+        transactions:
+          type: array
+          description: Underlying rail transactions executed for this operation.
+          items:
+            $ref: "#/components/schemas/TransactionEvent"
+        atTime:
+          type: string
+          format: date-time
+      required:
+        - id
+        - customerId
+        - account
+        - sourceAmount
+        - destinationAmount
+        - intent
+        - fees
+        - transactions
+        - atTime
+
+paths:
+  /api/subscriptions:
+    post:
+      operationId: createSubscription
+      tags:
+        - Subscriptions
+      summary: Create a subscription
+      description: Register a webhook subscription for a resource. Trace will POST events to the supplied URL.
+      parameters:
+        - $ref: "#/components/parameters/TraceVersion"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSubscriptionRequest"
+            examples:
+              all-events:
+                summary: Subscribe to every resource and event type
+                value:
+                  url: "https://api.example.com/trace-webhooks"
+                  includeAll: true
+                  allowRetry: true
+              specific-resource:
+                summary: Subscribe to all OPERATION events
+                value:
+                  url: "https://api.example.com/trace-webhooks"
+                  resources:
+                    - name: OPERATION
+                      includeAll: true
+                  allowRetry: true
+              specific-events:
+                summary: Subscribe only to selected beneficiary events
+                value:
+                  url: "https://api.example.com/trace-webhooks"
+                  resources:
+                    - name: BENEFICIARY
+                      events:
+                        - BENEFICIARY_APPROVED
+                        - BENEFICIARY_REJECTED
+                  allowRetry: true
+      responses:
+        "201":
+          description: Subscription created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Subscription"
+        "400":
+          description: Validation error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    get:
+      operationId: listSubscriptions
+      tags:
+        - Subscriptions
+      summary: List subscriptions
+      description: List webhook subscriptions for the authenticated customer.
+      parameters:
+        - $ref: "#/components/parameters/TraceVersion"
+        - $ref: "#/components/parameters/PaginationLimit"
+        - $ref: "#/components/parameters/PaginationCursor"
+        - $ref: "#/components/parameters/PaginationDirection"
+        - $ref: "#/components/parameters/PaginationSortOrder"
+      responses:
+        "200":
+          description: Paginated list of subscriptions.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubscriptionList"
+  /api/subscriptions/{subscriptionId}:
+    get:
+      operationId: getSubscription
+      tags:
+        - Subscriptions
+      summary: Get a subscription
+      parameters:
+        - $ref: "#/components/parameters/SubscriptionId"
+        - $ref: "#/components/parameters/TraceVersion"
+      responses:
+        "200":
+          description: Subscription details.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Subscription"
+        "404":
+          description: Subscription not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      operationId: updateSubscription
+      tags:
+        - Subscriptions
+      summary: Update a subscription
+      description: Update the URL, resources, or retry behaviour of an existing subscription.
+      parameters:
+        - $ref: "#/components/parameters/SubscriptionId"
+        - $ref: "#/components/parameters/TraceVersion"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSubscriptionRequest"
+            examples:
+              change-url:
+                summary: Move deliveries to a new URL
+                value:
+                  url: "https://api.example.com/trace-webhooks-v2"
+              replace-resources:
+                summary: Replace the subscribed resources
+                value:
+                  resources:
+                    - name: OPERATION
+                      includeAll: true
+                    - name: BENEFICIARY
+                      events:
+                        - BENEFICIARY_APPROVED
+              disable-retry:
+                summary: Stop retrying failed deliveries
+                value:
+                  allowRetry: false
+      responses:
+        "200":
+          description: Updated subscription.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Subscription"
+        "404":
+          description: Subscription not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteSubscription
+      tags:
+        - Subscriptions
+      summary: Delete a subscription
+      description: Permanently remove a subscription. No further events are delivered.
+      parameters:
+        - $ref: "#/components/parameters/SubscriptionId"
+        - $ref: "#/components/parameters/TraceVersion"
+      responses:
+        "204":
+          description: Subscription deleted.
+        "404":
+          description: Subscription not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/subscriptions/{subscriptionId}/executionLogs:
+    get:
+      operationId: listExecutionLogs
+      tags:
+        - Execution logs
+      summary: List execution logs
+      description: List delivery attempts for a subscription, most recent first.
+      parameters:
+        - $ref: "#/components/parameters/SubscriptionId"
+        - $ref: "#/components/parameters/TraceVersion"
+        - $ref: "#/components/parameters/PaginationLimit"
+        - $ref: "#/components/parameters/PaginationCursor"
+        - $ref: "#/components/parameters/PaginationDirection"
+        - $ref: "#/components/parameters/PaginationSortOrder"
+      responses:
+        "200":
+          description: Paginated list of execution logs.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExecutionLogList"
+        "404":
+          description: Subscription not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/subscriptions/{subscriptionId}/executionLogs/{executionLogId}:
+    get:
+      operationId: getExecutionLog
+      tags:
+        - Execution logs
+      summary: Get an execution log
+      description: Retrieve a single delivery attempt, including the request payload and partner response status.
+      parameters:
+        - $ref: "#/components/parameters/SubscriptionId"
+        - $ref: "#/components/parameters/ExecutionLogId"
+        - $ref: "#/components/parameters/TraceVersion"
+      responses:
+        "200":
+          description: Execution log entry.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExecutionLog"
+        "404":
+          description: Execution log not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/subscriptions/{subscriptionId}/executionLogs/{executionLogId}/resend:
+    post:
+      operationId: resendExecutionLog
+      tags:
+        - Execution logs
+      summary: Resend a delivery
+      description: |
+        Re-send a previously failed (or successful) delivery using the same
+        payload, headers, and signature. Useful when a partner endpoint was
+        unavailable during the original window.
+      parameters:
+        - $ref: "#/components/parameters/SubscriptionId"
+        - $ref: "#/components/parameters/ExecutionLogId"
+        - $ref: "#/components/parameters/TraceVersion"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "204":
+          description: Resend accepted.
+        "404":
+          description: Execution log not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /references/ResourceName/all:
+    get:
+      operationId: listResourceReferences
+      tags:
+        - References
+      summary: List supported resources and event types
+      description: |
+        Returns the full catalog of webhook resources and the event types each
+        resource exposes. Use this to discover available subscriptions
+        programmatically.
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/TraceVersion"
+      responses:
+        "200":
+          description: Resource catalog.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ResourceReference"
+
+webhooks:
+  account.asset.activated:
+    post:
+      summary: Account asset activated
+      description: Fires when an account asset finishes onboarding and funding instructions are available.
+      tags:
+        - Account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AccountAssetActivatedEvent"
+      responses:
+        "200":
+          $ref: "#/components/responses/WebhookAck"
+  beneficiary.created:
+    post:
+      summary: Beneficiary created
+      description: Fires when a beneficiary is created and enters compliance review.
+      tags:
+        - Beneficiary
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BeneficiaryEvent"
+      responses:
+        "200":
+          $ref: "#/components/responses/WebhookAck"
+  beneficiary.approved:
+    post:
+      summary: Beneficiary approved
+      description: Fires when a beneficiary's payment instructions are approved and ready for use.
+      tags:
+        - Beneficiary
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BeneficiaryEvent"
+      responses:
+        "200":
+          $ref: "#/components/responses/WebhookAck"
+  beneficiary.rejected:
+    post:
+      summary: Beneficiary rejected
+      description: Fires when a beneficiary's review is rejected.
+      tags:
+        - Beneficiary
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BeneficiaryEvent"
+      responses:
+        "200":
+          $ref: "#/components/responses/WebhookAck"
+
+  operation.requested:
+    post:
+      summary: Operation requested
+      description: Fires when a payment operation (deposit, withdrawal, swap) is created.
+      tags:
+        - Operation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OperationEvent"
+      responses:
+        "200":
+          $ref: "#/components/responses/WebhookAck"

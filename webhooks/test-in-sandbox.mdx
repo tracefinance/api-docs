@@ -1,0 +1,74 @@
+---
+title: "Test in sandbox"
+description: "Develop and verify webhook handlers against the Trace sandbox."
+---
+
+## Overview
+
+The sandbox environment delivers real webhook events as you exercise the API — creating orders, registering beneficiaries, initiating PIX payments, and so on. Use it to develop and test your handler before going to production.
+
+The sandbox base URL is `{{sandboxUrl}}` (`https://faas.sandbox.tracefinance.io`).
+
+## Recommended workflow
+
+<Steps>
+  <Step title="Stand up a public HTTPS endpoint">
+    Your handler must be reachable from the public internet over HTTPS. For local development, expose your machine via a tunnelling tool such as [ngrok](https://ngrok.com) or [Cloudflare Tunnel](https://www.cloudflare.com/products/tunnel/):
+
+    ```bash
+    ngrok http 8080
+    ```
+
+    Use the resulting `https://*.ngrok.io` URL when registering the subscription.
+  </Step>
+
+  <Step title="Register a sandbox subscription">
+    Point the subscription at your tunnel URL and pick the resources you want to test:
+
+    ```bash
+    curl --request POST \
+      --url {{sandboxUrl}}/webhook/api/subscriptions \
+      --header 'Authorization: Bearer <sandbox-token>' \
+      --header 'Content-Type: application/json' \
+      --data '{
+        "url": "https://abcd1234.ngrok.io/webhooks",
+        "includeAll": true,
+        "allowRetry": true
+      }'
+    ```
+  </Step>
+
+  <Step title="Trigger events">
+    Sandbox does not expose a synthetic-event endpoint. To generate events, drive the corresponding API:
+
+    - **Account events** — complete sandbox account onboarding so an asset activates.
+    - **Beneficiary events** — register a sandbox beneficiary and wait for the compliance review to settle.
+    - **Operation events** — initiate sandbox operations (deposit, withdrawal, swap).
+
+    Sandbox transactions move through the same state machine as production but with a faster cadence and no real-money settlement, so you typically see the full event lifecycle within seconds.
+  </Step>
+
+  <Step title="Inspect deliveries">
+    Use the [execution logs](/api-reference/fx-webhook/subscriptions/list-execution-logs) endpoint to see exactly what was sent and what your handler responded with:
+
+    ```bash
+    curl --request GET \
+      --url {{sandboxUrl}}/webhook/api/subscriptions/<subscription-id>/executionLogs \
+      --header 'Authorization: Bearer <sandbox-token>'
+    ```
+
+    Failed attempts can be [resent on demand](/webhooks/retry-policy#manual-replay) once you fix your handler — useful for replaying real payloads against new code without re-running the originating transaction.
+  </Step>
+</Steps>
+
+## Tips
+
+- Keep your sandbox subscription and production subscription in **separate** projects with their own client credentials. Signatures are bound to the client secret, so a sandbox key won't validate production deliveries (and vice versa).
+- Track which subscription belongs to which environment by URL — for example, point staging to `https://staging.example.com/...` and local dev to your tunnel URL.
+- For ngrok-style tunnels, the URL changes whenever you restart. Either upgrade to a stable subdomain or [PATCH the subscription](/api-reference/fx-webhook/subscriptions/update-subscription) with the new URL each session.
+
+## Related
+
+- [Environments](/guides/environments) — sandbox and production base URLs
+- [Subscribe to events](/webhooks/subscribe) — full subscription lifecycle
+- [Retry policy](/webhooks/retry-policy) — replaying past deliveries against updated handlers

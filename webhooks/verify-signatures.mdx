@@ -1,0 +1,107 @@
+---
+title: "Verify signatures"
+description: "Confirm webhook requests came from Trace with HMAC-SHA256 verification."
+---
+
+## Overview
+
+Every webhook delivery includes a `X-Message-Signature` header containing an HMAC-SHA256 signature you can verify with your client secret. Verification gives you cryptographic proof that the request originated from Trace and that the message identifier has not been tampered with.
+
+Reject any request whose signature does not match — treat unsigned or mis-signed requests as untrusted.
+
+## What is signed
+
+The signature is computed over the concatenation of the message ID and your client ID, separated by a `+`:
+
+```text
+signature = HMAC-SHA256(secret = clientSecret, data = messageId + "+" + clientId)
+```
+
+The output is hex-encoded and sent in the `X-Message-Signature` header.
+
+<Note>
+  The signature covers the message identifier, not the request body. Body integrity is provided by TLS (HTTPS). Always serve your webhook endpoint over HTTPS.
+</Note>
+
+## Verify the signature
+
+Reconstruct the signature on your side using the `X-Message-Id` and `X-Company-Id` headers (or your stored `clientId`) plus your client secret. If the recomputed value matches `X-Message-Signature`, the request is authentic.
+
+<Tabs>
+  <Tab title="Python">
+
+```python
+import hmac
+import hashlib
+
+def verify_signature(message_id: str, client_id: str, client_secret: str, signature_header: str) -> bool:
+    expected = hmac.new(
+        key=client_secret.encode("utf-8"),
+        msg=f"{message_id}+{client_id}".encode("utf-8"),
+        digestmod=hashlib.sha256,
+    ).hexdigest()
+    return hmac.compare_digest(expected, signature_header)
+```
+
+  </Tab>
+  <Tab title="JavaScript">
+
+```javascript
+import { createHmac, timingSafeEqual } from "node:crypto";
+
+function verifySignature(messageId, clientId, clientSecret, signatureHeader) {
+  const expected = createHmac("sha256", clientSecret)
+    .update(`${messageId}+${clientId}`)
+    .digest("hex");
+  return timingSafeEqual(
+    Buffer.from(expected, "hex"),
+    Buffer.from(signatureHeader, "hex"),
+  );
+}
+```
+
+  </Tab>
+  <Tab title="Go">
+
+```go
+import (
+    "crypto/hmac"
+    "crypto/sha256"
+    "encoding/hex"
+)
+
+func VerifySignature(messageID, clientID, clientSecret, signatureHeader string) bool {
+    mac := hmac.New(sha256.New, []byte(clientSecret))
+    mac.Write([]byte(messageID + "+" + clientID))
+    expected := hex.EncodeToString(mac.Sum(nil))
+    return hmac.Equal([]byte(expected), []byte(signatureHeader))
+}
+```
+
+  </Tab>
+</Tabs>
+
+Use a constant-time comparison (`hmac.compare_digest`, `crypto.timingSafeEqual`, `hmac.Equal`) to prevent timing attacks.
+
+## Headers Trace sends
+
+| Header | Description |
+| --- | --- |
+| `X-Message-Id` | Unique UUID per delivery attempt. Use it for idempotent processing. |
+| `X-Company-Id` | Your Trace company identifier. |
+| `X-Event-Type` | Event type, e.g., `OPERATION_REQUESTED`. |
+| `X-Resource-Name` | Resource group, e.g., `OPERATION`. |
+| `X-Message-Signature` | Hex-encoded HMAC-SHA256 of `messageId+clientId`. |
+
+## Where to find your client secret
+
+Your `clientId` and `clientSecret` are issued during onboarding — the same credentials used to obtain access tokens (see [Authentication](/guides/authentication)). Store the secret server-side; never commit it to source control or expose it in client-side code.
+
+<Warning>
+  If you suspect your client secret has been compromised, rotate it immediately and re-verify previously stored event IDs to detect any spoofed deliveries.
+</Warning>
+
+## Related
+
+- [Retry policy](/webhooks/retry-policy) — handle failed verifications without losing events
+- [Authentication](/guides/authentication) — how `clientId`/`clientSecret` are provisioned

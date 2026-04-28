@@ -1,0 +1,78 @@
+---
+title: "Retry policy"
+description: "How Trace handles failed webhook deliveries, retries, and manual replay."
+---
+
+## Overview
+
+When your endpoint fails to acknowledge a delivery — non-`2xx` response, network error, or timeout — Trace records the failure and queues a retry. Every attempt is captured in an [execution log](/api-reference/fx-webhook/subscriptions/list-execution-logs) you can inspect or replay manually.
+
+## What counts as success
+
+Trace considers a delivery successful when your endpoint returns any `2xx` status code (`200`, `201`, `202`, `204`, etc.). Anything else — `4xx`, `5xx`, network failure, or response timeout — is recorded as `FAILED` and triggers retry.
+
+<Tip>
+  Acknowledge as fast as possible: return `2xx` first, then process the event asynchronously. Long synchronous processing risks timeouts and unnecessary retries.
+</Tip>
+
+## Retry behaviour
+
+Failed deliveries are queued and re-attempted after a delay. Trace retries the same payload with the same headers and signature; from your side, a retry is indistinguishable from the original delivery — except that `X-Message-Id` stays the same, letting you detect duplicates.
+
+| Property | Behaviour |
+| --- | --- |
+| Triggers | Any non-`2xx` response, exception, or network failure |
+| Backoff | Fixed delay between attempts |
+| Max attempts | A small number per delivery (typically 2–5) |
+| Identifier | `X-Message-Id` is constant across retries — use it for idempotency |
+| Result | After the budget is exhausted, the execution log stays `FAILED` and no further automatic retries occur |
+
+<Note>
+  Retry counts depend on the deployed environment. Reach out to your Trace contact if you need the current limit for capacity planning.
+</Note>
+
+## Idempotency on your side
+
+Always treat handlers as idempotent. The same `X-Message-Id` may arrive multiple times if:
+
+- Your endpoint timed out but actually processed the event.
+- A previous delivery returned `5xx` and is being retried.
+- You manually [resend a delivery](#manual-replay).
+
+Persist `X-Message-Id` somewhere durable (a database, cache, or queue) and short-circuit duplicates before doing any side-effects.
+
+## Inspect execution logs
+
+Every delivery attempt is recorded with the request payload, response status, and retry count.
+
+```bash
+curl --request GET \
+  --url {{sandboxUrl}}/webhook/api/subscriptions/<subscription-id>/executionLogs \
+  --header 'Authorization: Bearer <token>'
+```
+
+Fetch a single attempt to see the exact body that was sent:
+
+```bash
+curl --request GET \
+  --url {{sandboxUrl}}/webhook/api/subscriptions/<subscription-id>/executionLogs/<log-id> \
+  --header 'Authorization: Bearer <token>'
+```
+
+## Manual replay
+
+If your endpoint was unavailable during the original retry window, you can replay any execution log on demand. Trace re-sends the same payload, headers, and signature.
+
+```bash
+curl --request POST \
+  --url {{sandboxUrl}}/webhook/api/subscriptions/<subscription-id>/executionLogs/<log-id>/resend \
+  --header 'Authorization: Bearer <token>'
+```
+
+Returns `204 No Content` if the resend is queued. The replay is recorded as a new attempt in the execution log history.
+
+## Related
+
+- [Verify signatures](/webhooks/verify-signatures) — duplicate-safe processing depends on a correctly identified message
+- [Subscribe to events](/webhooks/subscribe) — pause delivery instead of returning `5xx` when you need a maintenance window
+- [Resend a delivery](/api-reference/fx-webhook/subscriptions/resend-delivery) — full reference for the manual replay endpoint
