@@ -106,6 +106,13 @@
                 ]
               },
               {
+                "group": "Balances",
+                "icon": "wallet",
+                "pages": [
+                  "api-reference/fx-balance/balances/get-balance"
+                ]
+              },
+              {
                 "group": "Funding instructions",
                 "icon": "money-bill-transfer",
                 "pages": [

@@ -2,7 +2,7 @@ openapi: 3.1.1
 info:
   title: Trace FX Payments API
   version: 1.0.0
-  description: |
+  description: >
     API for deposits, withdrawals, swaps, and beneficiary management
     on the Trace FX platform.
 servers:
@@ -110,8 +110,7 @@ components:
         - EURC
         - BRLT
       description: |
-        ISO 4217 currency code or stablecoin ticker. The maximum decimal scale of an
-        `AmountValue` paired with this asset depends on the asset:
+        ISO 4217 currency code or stablecoin ticker. The maximum decimal scale of an `AmountValue` paired with this asset depends on the asset:
 
         | Asset | Decimals | Asset | Decimals |
         |---|---|---|---|
@@ -129,14 +128,14 @@ components:
     AmountValue:
       type: string
       pattern: '^-?\d+(\.\d+)?$'
-      description: |
+      description: >
         Decimal monetary amount in the associated asset. The number of fractional digits must
         not exceed the asset's precision — see `Asset` for the per-asset table. Exceeding the
         precision fails with `INVALID_AMOUNT_PRECISION`.
       example: "500.00"
     AmountResponse:
       type: object
-      description: |
+      description: >
         Monetary amount returned by the API. Carries both an integer (for arithmetic) and a
         decimal string (for display) so callers don't need to know per-asset precision upfront.
         Request bodies use the scalar `AmountValue` instead.
@@ -242,7 +241,7 @@ components:
         - PENDING_REVIEW
         - APPROVED
         - REJECTED
-      description: |
+      description: >
         Compliance review status of a payment instruction. New instructions start in
         `PENDING_REVIEW` and transition asynchronously to `APPROVED` or `REJECTED`.
     InstructionState:
@@ -287,14 +286,14 @@ components:
       description: Whether a beneficiary or account holder is a person (CPF) or a company (CNPJ).
     TaxId:
       type: object
-      description: |
+      description: >
         Tax identifier as a typed value object. The `number` must match the format expected
         for the supplied `type` (e.g. a `CPF` must be 11 digits with valid check digits, a
         `CNPJ` must be 14 digits with valid check digits).
       properties:
         type:
           type: string
-          description: |
+          description: >
             Tax identifier kind. Brazilian beneficiaries use `CPF` (individual) or `CNPJ`
             (company); other jurisdictions use the local code (e.g. `SSN`, `EIN`, `CUIT`).
           example: "CPF"
@@ -608,17 +607,14 @@ components:
     CreateQuoteRequest:
       type: object
       description: |
-        Quotes lock an FX rate (or a 1:1 spot for same-asset) for a short window and are
-        required by every operation creation endpoint. A quote is bound to a specific
-        account and can be consumed by exactly one operation on that account.
+        Quotes lock an FX rate (or a 1:1 spot for same-asset) for a short window and are required by every operation creation endpoint. A quote is bound to a specific account and can be consumed by exactly one operation on that account.
 
         Provide exactly one of `sourceAmount` or `targetAmount`:
 
         - `sourceAmount` — fix the amount you'll spend; the target side is computed.
         - `targetAmount` — fix the amount the beneficiary receives; the source side is computed.
 
-        Same-asset quotes (`sourceAsset == targetAsset`) are valid and return a 1:1 spot with
-        zero spread.
+        Same-asset quotes (`sourceAsset == targetAsset`) are valid and return a 1:1 spot with zero spread.
       properties:
         accountId:
           type: string
@@ -674,7 +670,7 @@ components:
     # of their controllers.
     CreateWithdrawalRequest:
       type: object
-      description: |
+      description: >
         Every withdrawal references a quote previously obtained from
         `POST /api/quotes`. The quote determines `sourceAmount` and
         `targetAmount` and locks the FX rate (or the 1:1 spot for same-asset). A quote can
@@ -688,7 +684,7 @@ components:
         quoteId:
           type: string
           format: uuid
-          description: |
+          description: >
             ID of a quote returned by `POST /api/quotes`. Must belong to the same
             customer, must not have expired, and must not have been consumed by another
             operation.
@@ -701,7 +697,7 @@ components:
         - beneficiary
     CreateSwapRequest:
       type: object
-      description: |
+      description: >
         Every swap references a quote previously obtained from `POST /api/quotes`. The quote
         determines `sourceAmount` and `targetAmount` (including their assets) and locks the FX
         rate. A quote can be consumed by at most one operation.
@@ -714,7 +710,7 @@ components:
         quoteId:
           type: string
           format: uuid
-          description: |
+          description: >
             ID of a quote returned by `POST /api/quotes`. Must belong to the same
             customer, must not have expired, and must not have been consumed by another
             operation.
@@ -724,7 +720,7 @@ components:
         - quoteId
     CreateDepositRequest:
       type: object
-      description: |
+      description: >
         Every deposit references a quote previously obtained from `POST /api/quotes`. The
         quote determines `sourceAmount` and `targetAmount` and locks the FX rate (or the 1:1
         spot for same-asset). A quote can be consumed by at most one operation.
@@ -741,7 +737,7 @@ components:
         quoteId:
           type: string
           format: uuid
-          description: |
+          description: >
             ID of a quote returned by `POST /api/quotes`. Must belong to the same
             customer, must not have expired, and must not have been consumed by another
             operation.
@@ -881,7 +877,7 @@ components:
         - type
     OperationResponse:
       type: object
-      description: |
+      description: >
         An operation. Withdrawals (`POST /api/operations/withdrawal`), swaps
         (`POST /api/operations/swap`), and deposits (`POST /api/operations/deposit`)
         share this shape, discriminated by `intent.type`.
@@ -1024,7 +1020,7 @@ components:
     OperationSwapIntent:
       title: Swap
       type: object
-      description: |
+      description: >
         Intent for a swap. Carries only the type discriminator — source and target assets,
         amounts, account, and quote all live at the operation root.
       properties:
@@ -1037,7 +1033,7 @@ components:
     OperationDepositIntent:
       title: Deposit
       type: object
-      description: |
+      description: >
         Intent for a deposit. Carries the funding instruction the customer should use to
         send money in (PIX key, boleto barcode, TED account, etc.).
       properties:
@@ -2045,7 +2041,7 @@ paths:
       tags:
         - Operations
       summary: Create a withdrawal
-      description: |
+      description: >
         Creates a withdrawal that debits the customer's account and sends funds to an external
         beneficiary via the resolved payment rail. Returns `201` immediately with the operation in
         `REQUESTED` status; settlement and rail dispatch happen asynchronously.
@@ -2145,7 +2141,7 @@ paths:
                     createdAt: "2026-04-25T02:39:17Z"
                     updatedAt: "2026-04-25T02:39:17Z"
         "400":
-          description: |
+          description: >
             Validation error: missing or malformed fields, inline beneficiary not supported, or
             inline instruction not supported.
           content:
@@ -2267,7 +2263,7 @@ paths:
       tags:
         - Operations
       summary: Create a swap
-      description: |
+      description: >
         Creates a swap that converts funds between assets within the customer's multi-currency
         account. The referenced quote determines the source and target assets, amounts, and the
         FX rate. Returns `201` immediately with the operation in `REQUESTED` status; settlement
@@ -2407,7 +2403,7 @@ paths:
       tags:
         - Operations
       summary: Create a deposit
-      description: |
+      description: >
         Creates a deposit that credits the customer's account once funds arrive via the
         chosen funding rail. The customer picks the rail with `fundingInstruction.rail`;
         the response carries the concrete instruction details (PIX key, boleto barcode,
@@ -2570,7 +2566,7 @@ paths:
       tags:
         - Operations
       summary: Create a quote
-      description: |
+      description: >
         Creates a quote that locks an FX rate for a short window. Every operation creation
         endpoint (withdrawal, swap, deposit) requires a `quoteId` — see the request body of
         `POST /api/operations/withdrawal`, `POST /api/operations/swap`, or
@@ -2786,7 +2782,7 @@ paths:
       tags:
         - Operations
       summary: List operations
-      description: |
+      description: >
         Lists all operations for the authenticated customer. Results are paginated and can
         be filtered by status or by intent type.
       parameters:

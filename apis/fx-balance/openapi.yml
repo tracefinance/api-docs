@@ -1,0 +1,263 @@
+openapi: 3.1.0
+info:
+  title: FX Balance API
+  version: 1.0.0
+  description: API for retrieving multi-currency balances for an account on the Trace FX platform.
+servers:
+  - url: https://faas.sandbox.tracefinance.io/balance
+    description: Sandbox
+  - url: https://faas.tracefinance.io/balance
+    description: Production
+security:
+  - bearerAuth: []
+tags:
+  - name: Balances
+    description: Retrieve fiat and crypto balances for an account.
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: "Auth0 JWT token. Include as `Authorization: Bearer <token>`."
+  parameters:
+    TraceVersion:
+      name: X-Trace-Version
+      in: header
+      required: false
+      description: API version. Omit to use the default version.
+      schema:
+        type: string
+        example: "1"
+  schemas:
+    Currency:
+      type: string
+      description: Fiat or crypto currency code.
+      enum:
+        - USD
+        - BRL
+        - EUR
+        - CAD
+        - AUD
+        - GBP
+        - MXN
+        - HKD
+        - SGD
+        - PHP
+        - NZD
+        - CHF
+        - NOK
+        - DKK
+        - PLN
+        - SEK
+        - USDC
+        - USDT
+        - EURC
+        - BRLT
+      example: "BRL"
+    AmountResponse:
+      type: object
+      description: A monetary amount expressed in both minor units and decimal form.
+      properties:
+        value:
+          type: integer
+          format: int64
+          description: Amount in minor units of the currency (e.g., cents for fiat, base units for crypto).
+          example: 500000
+        decimalValue:
+          type: string
+          description: Amount as a decimal string, scaled by the currency's `decimals`.
+          example: "5000.00"
+        currency:
+          $ref: "#/components/schemas/Currency"
+        decimals:
+          type: integer
+          description: Number of decimal places for the currency. Fiat = 2, crypto = 6.
+          example: 2
+      required:
+        - value
+        - decimalValue
+        - currency
+        - decimals
+    BalanceEntryResponse:
+      type: object
+      description: >
+        A single balance entry for one currency. When `synced` is `false`, the
+        upstream provider was unreachable and `amount` is omitted; partners
+        should retry or fall back to a previously cached value.
+      properties:
+        amount:
+          allOf:
+            - $ref: "#/components/schemas/AmountResponse"
+          nullable: true
+          description: The available balance. Null when `synced` is `false`.
+        synced:
+          type: boolean
+          description: Whether the balance was successfully retrieved from the underlying provider.
+          example: true
+      required:
+        - synced
+    BalanceResponse:
+      type: object
+      description: Multi-currency balance grouped by asset class.
+      properties:
+        accountId:
+          type: string
+          format: uuid
+          description: Identifier of the account these balances belong to.
+          example: "5b7c1f2a-3d4e-4f8a-9b1c-2d3e4f5a6b7c"
+        fiat:
+          type: array
+          description: Fiat balances, one entry per enabled fiat currency.
+          items:
+            $ref: "#/components/schemas/BalanceEntryResponse"
+        crypto:
+          type: array
+          description: Crypto balances, one entry per enabled crypto currency.
+          items:
+            $ref: "#/components/schemas/BalanceEntryResponse"
+      required:
+        - accountId
+        - fiat
+        - crypto
+    ErrorResponse:
+      type: object
+      properties:
+        code:
+          type: string
+          description: Machine-readable error code.
+        message:
+          type: string
+          description: Human-readable description.
+        details:
+          type: object
+          additionalProperties: true
+      required:
+        - code
+        - message
+  responses:
+    UnauthorizedError:
+      description: Missing or invalid authentication token.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          examples:
+            invalidToken:
+              $ref: "#/components/examples/InvalidToken"
+            expiredToken:
+              $ref: "#/components/examples/ExpiredToken"
+  examples:
+    InvalidToken:
+      summary: Bearer token is invalid or malformed
+      value:
+        code: "INVALID_ACCESS_TOKEN"
+        message: "Invalid access token"
+        details: {}
+    ExpiredToken:
+      summary: Bearer token has expired
+      value:
+        code: "EXPIRED_ACCESS_TOKEN"
+        message: "Expired access token"
+        details: {}
+    BalanceNotFound:
+      summary: No partner accounts exist for the authenticated account
+      value:
+        code: "RESOURCE_NOT_FOUND"
+        message: "Balance with given parameters [Balance.accountId:5b7c1f2a-3d4e-4f8a-9b1c-2d3e4f5a6b7c] not found"
+        details:
+          resource: "Balance"
+          parameters:
+            Balance.accountId: "5b7c1f2a-3d4e-4f8a-9b1c-2d3e4f5a6b7c"
+    BalanceFiatOnly:
+      summary: Account with only fiat assets, all balances synced
+      value:
+        accountId: "5b7c1f2a-3d4e-4f8a-9b1c-2d3e4f5a6b7c"
+        fiat:
+          - amount:
+              value: 500000
+              decimalValue: "5000.00"
+              currency: "BRL"
+              decimals: 2
+            synced: true
+          - amount:
+              value: 120050
+              decimalValue: "1200.50"
+              currency: "USD"
+              decimals: 2
+            synced: true
+        crypto: []
+    BalanceMixed:
+      summary: Account with fiat and crypto assets
+      value:
+        accountId: "5b7c1f2a-3d4e-4f8a-9b1c-2d3e4f5a6b7c"
+        fiat:
+          - amount:
+              value: 500000
+              decimalValue: "5000.00"
+              currency: "BRL"
+              decimals: 2
+            synced: true
+        crypto:
+          - amount:
+              value: 1500000
+              decimalValue: "1.500000"
+              currency: "USDC"
+              decimals: 6
+            synced: true
+    BalanceUnsyncedSource:
+      summary: Upstream provider was unreachable for one currency
+      value:
+        accountId: "5b7c1f2a-3d4e-4f8a-9b1c-2d3e4f5a6b7c"
+        fiat:
+          - amount:
+              value: 500000
+              decimalValue: "5000.00"
+              currency: "BRL"
+              decimals: 2
+            synced: true
+          - amount: null
+            synced: false
+        crypto: []
+paths:
+  /api/balances:
+    get:
+      operationId: getBalance
+      tags:
+        - Balances
+      summary: Get account balance
+      description: >
+        Retrieves the multi-currency balance for the authenticated account,
+        grouped into `fiat` and `crypto` arrays.
+
+        When an upstream provider is unreachable for a given currency, the
+        corresponding entry is returned with `synced: false` and `amount: null`
+        instead of failing the entire request. See
+        [Errors](/guides/principles/errors) for the standard error envelope.
+      parameters:
+        - $ref: "#/components/parameters/TraceVersion"
+      responses:
+        "200":
+          description: Account balance.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BalanceResponse"
+              examples:
+                fiatOnly:
+                  $ref: "#/components/examples/BalanceFiatOnly"
+                mixed:
+                  $ref: "#/components/examples/BalanceMixed"
+                unsyncedSource:
+                  $ref: "#/components/examples/BalanceUnsyncedSource"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "404":
+          description: No balance found for the authenticated account.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                balanceNotFound:
+                  $ref: "#/components/examples/BalanceNotFound"
