@@ -136,7 +136,6 @@
               "api-reference/fx-payment/beneficiaries/create-beneficiary",
               "api-reference/fx-payment/beneficiaries/list-beneficiaries",
               "api-reference/fx-payment/beneficiaries/get-beneficiary",
-              "api-reference/fx-payment/beneficiaries/update-beneficiary",
               "api-reference/fx-payment/beneficiaries/delete-beneficiary",
               {
                 "group": "Payment instructions",
