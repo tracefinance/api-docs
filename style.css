@@ -1,3 +1,17 @@
+/* ── Inline code: disable mid-word hyphenation ──────────────────────
+   Mintlify defaults to `hyphens: auto` and `overflow-wrap: anywhere`,
+   which produces fake hyphens inside identifiers (e.g.
+   `intent.fundingInstruc-tion`). Force breaks at natural points only,
+   never in the middle of a token. */
+
+:not(pre) > code {
+  hyphens: none !important;
+  -webkit-hyphens: none !important;
+  word-break: normal !important;
+  overflow-wrap: normal !important;
+  white-space: nowrap !important;
+}
+
 /* ── Navbar: Dashboard button ────────────────────────────────────── */
 
 .navbar-link a {

@@ -2,7 +2,7 @@ openapi: 3.1.1
 info:
   title: Trace FX Webhooks API
   version: 1.0.0
-  description: |
+  description: >
     API for managing webhook subscriptions and inspecting webhook delivery
     history on the Trace FX platform.
 servers:
@@ -965,7 +965,7 @@ components:
         - atTime
     BeneficiaryEvent:
       type: object
-      description: |
+      description: >
         Payload delivered for beneficiary lifecycle events
         (`BENEFICIARY_CREATED`, `BENEFICIARY_APPROVED`,
         `BENEFICIARY_REJECTED`).
@@ -994,7 +994,7 @@ components:
         - atTime
     OperationEvent:
       type: object
-      description: |
+      description: >
         Payload delivered for operation lifecycle events
         (`OPERATION_REQUESTED` and additional events as the operation
         progresses).
@@ -1259,7 +1259,7 @@ paths:
       tags:
         - Execution logs
       summary: Resend a delivery
-      description: |
+      description: >
         Re-send a previously failed (or successful) delivery using the same
         payload, headers, and signature. Useful when a partner endpoint was
         unavailable during the original window.
@@ -1284,7 +1284,7 @@ paths:
       tags:
         - References
       summary: List supported resources and event types
-      description: |
+      description: >
         Returns the full catalog of webhook resources and the event types each
         resource exposes. Use this to discover available subscriptions
         programmatically.
