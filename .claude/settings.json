@@ -15,6 +15,10 @@
           {
             "type": "command",
             "command": "python3 .claude/hooks/check-description.py"
+          },
+          {
+            "type": "command",
+            "command": "python3 .claude/hooks/validate-openapi-conventions.py"
           }
         ]
       }
